@@ -19,21 +19,46 @@
           <p class="eyebrow">GitHub Pages / Browser Only</p>
           <h1>単位趣味レーター Web</h1>
           <p class="lede">
-            KOAN の「単位取得状況紹介」を貼り付けるだけで、卒業要件と GPA をこのブラウザ内で集計します。
+            KOAN の「単位取得状況紹介」を貼り付けるだけで、卒業要件と GPA をブラウザ内で集計します。
             サーバー保存はしません。
           </p>
-          <div class="hero-badges">
-            <span>大阪大学 経済学部向け</span>
-            <span>KOAN コピペ対応</span>
-            <span>個人成績は初期表示なし</span>
+          <div class="hero-step-row">
+            <div class="hero-step">
+              <span>1</span>
+              <strong>KOAN をコピー</strong>
+              <small>単位取得状況紹介をそのまま使います。</small>
+            </div>
+            <div class="hero-step">
+              <span>2</span>
+              <strong>貼り付けて反映</strong>
+              <small>置換と追記を切り替えられます。</small>
+            </div>
+            <div class="hero-step">
+              <span>3</span>
+              <strong>要件と GPA を確認</strong>
+              <small>不足要件と期別 GPA を即時表示します。</small>
+            </div>
           </div>
         </div>
-        <div class="hero-status card">
-          <div class="mini-label">Engine</div>
-          <div id="engineStatus" class="engine-status loading">起動中</div>
-          <p id="engineDetail" class="engine-detail">
-            Python ロジックをブラウザ内に読み込んでいます。初回は数秒かかります。
-          </p>
+
+        <div class="hero-side">
+          <article class="hero-status card">
+            <div class="mini-label">Engine</div>
+            <div id="engineStatus" class="engine-status loading">起動中</div>
+            <p id="engineDetail" class="engine-detail">
+              Python ロジックをブラウザ内に読み込んでいます。初回は数秒かかります。
+            </p>
+          </article>
+
+          <article class="card privacy-card">
+            <div class="mini-label">Privacy</div>
+            <h2>個人成績は保持しません</h2>
+            <ul class="privacy-list">
+              <li>初期状態では個人成績を表示しません。</li>
+              <li>貼り付けたデータはブラウザ内だけで計算します。</li>
+              <li>必要なら JSON として自分で保存できます。</li>
+            </ul>
+          </article>
         </div>
       </header>
 
@@ -41,41 +66,93 @@
         <section class="control-stack">
           <article class="card control-card">
             <div class="section-head">
-              <h2>KOAN 反映</h2>
-              <p>ヘッダー行つきの表をそのまま貼り付けてください。</p>
+              <h2>入力</h2>
+              <p>普段は KOAN 貼り付けだけで足ります。JSON は復元や共有用です。</p>
             </div>
-            <label class="field-label" for="koanText">KOAN コピペ欄</label>
-            <textarea
-              id="koanText"
-              class="input-area"
-              placeholder="No.	科目詳細区分	科目小区分	科目名	…"
-            ></textarea>
-            <div class="action-row">
-              <div class="mode-switch" role="radiogroup" aria-label="読み込み方式">
-                <label><input type="radio" name="importMode" value="replace" checked /> 置換</label>
-                <label><input type="radio" name="importMode" value="append" /> 追記</label>
-              </div>
-              <button id="koanImportButton" class="primary-button" type="button">KOAN を反映</button>
-            </div>
-          </article>
 
-          <article class="card control-card">
-            <div class="section-head">
-              <h2>JSON 反映</h2>
-              <p>既存 JSON を貼り付けて、そのまま復元できます。</p>
+            <div class="panel-tabs" role="tablist" aria-label="入力方式">
+              <button
+                class="panel-tab is-active"
+                type="button"
+                role="tab"
+                aria-selected="true"
+                data-panel-target="koanPanel"
+              >
+                KOAN 貼付
+              </button>
+              <button
+                class="panel-tab"
+                type="button"
+                role="tab"
+                aria-selected="false"
+                data-panel-target="jsonPanel"
+              >
+                JSON 復元
+              </button>
+              <button
+                class="panel-tab"
+                type="button"
+                role="tab"
+                aria-selected="false"
+                data-panel-target="guidePanel"
+              >
+                使い方
+              </button>
             </div>
-            <label class="field-label" for="jsonText">JSON 入力欄</label>
-            <textarea
-              id="jsonText"
-              class="input-area compact"
-              placeholder='{"student_name":"","enrollment_year":2025,"courses":[]}'
-            ></textarea>
-            <div class="action-row">
-              <div class="secondary-actions">
+
+            <section id="koanPanel" class="input-panel is-active" aria-label="KOAN 貼付パネル">
+              <div class="hint-strip">
+                <strong>最短ルート</strong>
+                <span>KOAN の表をヘッダー行ごと貼り付けて、そのまま反映してください。</span>
+              </div>
+              <label class="field-label" for="koanText">KOAN コピペ欄</label>
+              <textarea
+                id="koanText"
+                class="input-area"
+                placeholder="No.	科目詳細区分	科目小区分	科目名	…"
+              ></textarea>
+              <div class="toolbar-row">
+                <button id="sampleHeaderButton" class="ghost-button slim-button" type="button">見本ヘッダー</button>
+                <div class="mode-switch" role="radiogroup" aria-label="読み込み方式">
+                  <label><input type="radio" name="importMode" value="replace" checked /> 置換</label>
+                  <label><input type="radio" name="importMode" value="append" /> 追記</label>
+                </div>
+              </div>
+              <div class="submit-row">
+                <button id="koanImportButton" class="primary-button" type="button">KOAN を反映</button>
+              </div>
+            </section>
+
+            <section id="jsonPanel" class="input-panel" aria-label="JSON 復元パネル">
+              <div class="hint-strip">
+                <strong>復元用</strong>
+                <span>以前に保存した JSON を貼り付けると、そのまま現在の状態に戻せます。</span>
+              </div>
+              <label class="field-label" for="jsonText">JSON 入力欄</label>
+              <textarea
+                id="jsonText"
+                class="input-area compact"
+                placeholder='{"student_name":"","enrollment_year":2025,"courses":[]}'
+              ></textarea>
+              <div class="submit-row split">
                 <button id="jsonImportButton" class="secondary-button" type="button">JSON を反映</button>
                 <button id="clearButton" class="ghost-button" type="button">クリア</button>
               </div>
-            </div>
+            </section>
+
+            <section id="guidePanel" class="input-panel guide-panel" aria-label="使い方パネル">
+              <ol class="guide-list">
+                <li>KOAN の「単位取得状況紹介」で表を表示してコピーします。</li>
+                <li>このページの `KOAN 貼付` に貼り付けて `KOAN を反映` を押します。</li>
+                <li>`要件` タブで不足条件を確認し、`GPA` タブで期別推移を見ます。</li>
+                <li>必要なら `JSON` タブから保存して、あとで `JSON 復元` に戻します。</li>
+              </ol>
+              <div class="support-grid">
+                <div class="support-chip">対応入力: KOAN のタブ区切り表</div>
+                <div class="support-chip">対応成績: S / A / B / C / F / 合 / 否</div>
+                <div class="support-chip">計算場所: ブラウザ内のみ</div>
+              </div>
+            </section>
           </article>
 
           <article class="card notice-card">
@@ -114,53 +191,98 @@
             <p id="headlineSubtext">ローカル処理のみ。ページ更新でデータは消えます。</p>
           </article>
 
-          <div class="status-grid">
-            <article class="card status-card">
-              <div class="section-head">
-                <h2>不足要件</h2>
-                <p>必修不足と単位不足をまとめて表示します。</p>
-              </div>
-              <ul id="deficitList" class="bullet-list empty">
-                <li>データ取込後に表示されます。</li>
-              </ul>
-            </article>
-            <article class="card status-card">
-              <div class="section-head">
-                <h2>警告 / 超過</h2>
-                <p>分類不能・不開講・自由選択への流入を確認できます。</p>
-              </div>
-              <ul id="warningList" class="bullet-list empty">
-                <li>データ取込後に表示されます。</li>
-              </ul>
-            </article>
+          <div class="result-tabs" role="tablist" aria-label="結果表示">
+            <button
+              class="result-tab is-active"
+              type="button"
+              role="tab"
+              aria-selected="true"
+              data-result-target="overviewPanel"
+            >
+              要件
+            </button>
+            <button
+              class="result-tab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              data-result-target="gpaPanel"
+            >
+              GPA
+            </button>
+            <button
+              class="result-tab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              data-result-target="coursesPanel"
+            >
+              科目
+            </button>
+            <button
+              class="result-tab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              data-result-target="jsonViewPanel"
+            >
+              JSON
+            </button>
           </div>
 
-          <article class="card table-card">
-            <div class="section-head">
-              <h2>進捗一覧</h2>
-              <p>区分ごとの達成状況です。</p>
+          <section id="overviewPanel" class="result-panel is-active" aria-label="要件パネル">
+            <div class="status-grid">
+              <article class="card status-card">
+                <div class="section-head">
+                  <h2>不足要件</h2>
+                  <p>必修不足と単位不足を優先して表示します。</p>
+                </div>
+                <ul id="deficitList" class="bullet-list empty">
+                  <li>データ取込後に表示されます。</li>
+                </ul>
+              </article>
+              <article class="card status-card">
+                <div class="section-head">
+                  <h2>警告 / 超過</h2>
+                  <p>分類不能・不開講・自由選択への流入を確認できます。</p>
+                </div>
+                <ul id="warningList" class="bullet-list empty">
+                  <li>データ取込後に表示されます。</li>
+                </ul>
+              </article>
             </div>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>区分</th>
-                    <th>小区分</th>
-                    <th>修得</th>
-                    <th>要件</th>
-                    <th>状態</th>
-                  </tr>
-                </thead>
-                <tbody id="progressTableBody">
-                  <tr>
-                    <td colspan="5" class="empty-cell">データ取込後に表示されます。</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </article>
 
-          <div class="dual-grid">
+            <article class="card table-card">
+              <div class="section-head">
+                <h2>進捗一覧</h2>
+                <p>区分ごとの達成状況です。</p>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>区分</th>
+                      <th>小区分</th>
+                      <th>修得</th>
+                      <th>要件</th>
+                      <th>状態</th>
+                    </tr>
+                  </thead>
+                  <tbody id="progressTableBody">
+                    <tr>
+                      <td colspan="5" class="empty-cell">データ取込後に表示されます。</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </article>
+          </section>
+
+          <section id="gpaPanel" class="result-panel" aria-label="GPA パネル">
+            <article class="card info-card">
+              <div class="mini-label">GPA Policy</div>
+              <p>S=4, A=3, B=2, C=1, F=0 で計算します。`合 / 否 / W` は GPA 対象外です。</p>
+            </article>
             <article class="card table-card">
               <div class="section-head">
                 <h2>GPA 推移</h2>
@@ -185,45 +307,49 @@
                 </table>
               </div>
             </article>
+          </section>
 
+          <section id="coursesPanel" class="result-panel" aria-label="科目パネル">
+            <article class="card table-card">
+              <div class="section-head">
+                <h2>科目一覧</h2>
+                <p>反映済み科目の一覧です。</p>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>年度</th>
+                      <th>学期</th>
+                      <th>科目名</th>
+                      <th>区分</th>
+                      <th>単位</th>
+                      <th>評語</th>
+                    </tr>
+                  </thead>
+                  <tbody id="courseTableBody">
+                    <tr>
+                      <td colspan="6" class="empty-cell">データ取込後に表示されます。</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </article>
+          </section>
+
+          <section id="jsonViewPanel" class="result-panel" aria-label="JSON パネル">
             <article class="card table-card">
               <div class="section-head">
                 <h2>現在のデータ JSON</h2>
-                <p>そのまま保存・再読込できます。</p>
+                <p>保存したいときだけここを使えば十分です。</p>
               </div>
               <textarea id="exportJson" class="json-view" readonly></textarea>
-              <div class="secondary-actions footer-actions">
+              <div class="submit-row split">
                 <button id="copyJsonButton" class="secondary-button" type="button">JSON をコピー</button>
                 <button id="downloadJsonButton" class="ghost-button" type="button">JSON を保存</button>
               </div>
             </article>
-          </div>
-
-          <article class="card table-card">
-            <div class="section-head">
-              <h2>科目一覧</h2>
-              <p>反映済み科目の一覧です。</p>
-            </div>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>年度</th>
-                    <th>学期</th>
-                    <th>科目名</th>
-                    <th>区分</th>
-                    <th>単位</th>
-                    <th>評語</th>
-                  </tr>
-                </thead>
-                <tbody id="courseTableBody">
-                  <tr>
-                    <td colspan="6" class="empty-cell">データ取込後に表示されます。</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </article>
+          </section>
         </section>
       </main>
     </div>

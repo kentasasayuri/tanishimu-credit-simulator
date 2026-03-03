@@ -1,5 +1,8 @@
 const PYODIDE_INDEX_URL = "https://cdn.jsdelivr.net/pyodide/v0.28.2/full/";
 
+const KOAN_HEADER_SAMPLE =
+  "No.\t科目詳細区分\t科目小区分\t科目名\tリーディング\t高度教養\t単位数\t修得年度\t修得学期\t評語\t合否\n";
+
 let pyodide = null;
 let appState = {
   student_name: "",
@@ -17,6 +20,7 @@ const els = {
   clearButton: document.getElementById("clearButton"),
   copyJsonButton: document.getElementById("copyJsonButton"),
   downloadJsonButton: document.getElementById("downloadJsonButton"),
+  sampleHeaderButton: document.getElementById("sampleHeaderButton"),
   engineStatus: document.getElementById("engineStatus"),
   engineDetail: document.getElementById("engineDetail"),
   noticeText: document.getElementById("noticeText"),
@@ -32,6 +36,10 @@ const els = {
   progressTableBody: document.getElementById("progressTableBody"),
   termTableBody: document.getElementById("termTableBody"),
   courseTableBody: document.getElementById("courseTableBody"),
+  inputTabs: [...document.querySelectorAll(".panel-tab")],
+  inputPanels: [...document.querySelectorAll(".input-panel")],
+  resultTabs: [...document.querySelectorAll(".result-tab")],
+  resultPanels: [...document.querySelectorAll(".result-panel")],
 };
 
 function escapeHtml(value) {
@@ -61,6 +69,7 @@ function setButtonsDisabled(disabled) {
     els.clearButton,
     els.copyJsonButton,
     els.downloadJsonButton,
+    els.sampleHeaderButton,
   ].forEach((button) => {
     button.disabled = disabled;
   });
@@ -75,6 +84,18 @@ function setEngineState(kind, title, detail) {
   els.engineStatus.className = `engine-status ${kind}`;
   els.engineStatus.textContent = title;
   els.engineDetail.textContent = detail;
+}
+
+function activateTab(buttons, panels, targetId) {
+  buttons.forEach((button) => {
+    const isActive = button.dataset.panelTarget === targetId || button.dataset.resultTarget === targetId;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-selected", isActive ? "true" : "false");
+  });
+
+  panels.forEach((panel) => {
+    panel.classList.toggle("is-active", panel.id === targetId);
+  });
 }
 
 function renderList(target, items, emptyText) {
@@ -167,7 +188,9 @@ function renderPayload(payload) {
   els.headlineText.textContent = summary.message;
   els.headlineSubtext.textContent = `データソース: ${appState.source || "blank"} / GPA対象単位: ${summary.gpa_credits}`;
   els.headlineCard.classList.remove("ok", "warn", "risk");
-  els.headlineCard.classList.add(summary.tone);
+  if (summary.tone && summary.tone !== "idle") {
+    els.headlineCard.classList.add(summary.tone);
+  }
   els.exportJson.value = payload.json_text;
 
   const warningItems = [...payload.warnings, ...payload.overflow];
@@ -227,6 +250,7 @@ async function handleKoanImport() {
       mode: currentMode(),
     });
     renderPayload(payload);
+    activateTab(els.resultTabs, els.resultPanels, "overviewPanel");
   } catch (error) {
     els.noticeText.textContent = `読込失敗: ${error.message}`;
   } finally {
@@ -249,6 +273,7 @@ async function handleJsonImport() {
       mode: currentMode(),
     });
     renderPayload(payload);
+    activateTab(els.resultTabs, els.resultPanels, "overviewPanel");
   } catch (error) {
     els.noticeText.textContent = `読込失敗: ${error.message}`;
   } finally {
@@ -263,11 +288,22 @@ async function handleClear() {
     els.koanText.value = "";
     els.jsonText.value = "";
     renderPayload(payload);
+    activateTab(els.resultTabs, els.resultPanels, "overviewPanel");
   } catch (error) {
     els.noticeText.textContent = `初期化失敗: ${error.message}`;
   } finally {
     setButtonsDisabled(false);
   }
+}
+
+function insertSampleHeader() {
+  if (!els.koanText.value.trim()) {
+    els.koanText.value = KOAN_HEADER_SAMPLE;
+  } else if (!els.koanText.value.includes("科目詳細区分")) {
+    els.koanText.value = `${KOAN_HEADER_SAMPLE}${els.koanText.value}`;
+  }
+  els.koanText.focus();
+  els.noticeText.textContent = "KOAN の見本ヘッダーを入力欄に入れました。";
 }
 
 async function copyJson() {
@@ -307,10 +343,21 @@ async function initialize() {
   }
 }
 
+els.inputTabs.forEach((button) => {
+  button.addEventListener("click", () => activateTab(els.inputTabs, els.inputPanels, button.dataset.panelTarget));
+});
+
+els.resultTabs.forEach((button) => {
+  button.addEventListener("click", () =>
+    activateTab(els.resultTabs, els.resultPanels, button.dataset.resultTarget),
+  );
+});
+
 els.koanImportButton.addEventListener("click", handleKoanImport);
 els.jsonImportButton.addEventListener("click", handleJsonImport);
 els.clearButton.addEventListener("click", handleClear);
 els.copyJsonButton.addEventListener("click", copyJson);
 els.downloadJsonButton.addEventListener("click", downloadJson);
+els.sampleHeaderButton.addEventListener("click", insertSampleHeader);
 
 initialize();
