@@ -11,6 +11,8 @@ let appState = {
   source: "blank",
 };
 
+const categoryFillClasses = ["fill-sun", "fill-cyan", "fill-mint", "fill-rose"];
+
 const els = {
   koanText: document.getElementById("koanText"),
   jsonText: document.getElementById("jsonText"),
@@ -21,12 +23,18 @@ const els = {
   copyJsonButton: document.getElementById("copyJsonButton"),
   downloadJsonButton: document.getElementById("downloadJsonButton"),
   sampleHeaderButton: document.getElementById("sampleHeaderButton"),
+  toggleImportDock: document.getElementById("toggleImportDock"),
+  importDockBody: document.getElementById("importDockBody"),
   engineStatus: document.getElementById("engineStatus"),
   engineDetail: document.getElementById("engineDetail"),
+  heroDonut: document.getElementById("heroDonut"),
+  heroStatusLabel: document.getElementById("heroStatusLabel"),
+  heroGpaCredits: document.getElementById("heroGpaCredits"),
   noticeText: document.getElementById("noticeText"),
-  headlineCard: document.querySelector(".headline-card"),
+  headlineCard: document.querySelector(".story-card"),
   headlineText: document.getElementById("headlineText"),
   headlineSubtext: document.getElementById("headlineSubtext"),
+  summaryPills: document.getElementById("summaryPills"),
   metricCredits: document.getElementById("metricCredits"),
   metricGpa: document.getElementById("metricGpa"),
   metricDeficit: document.getElementById("metricDeficit"),
@@ -36,6 +44,10 @@ const els = {
   progressTableBody: document.getElementById("progressTableBody"),
   termTableBody: document.getElementById("termTableBody"),
   courseTableBody: document.getElementById("courseTableBody"),
+  completionViz: document.getElementById("completionViz"),
+  categoryBars: document.getElementById("categoryBars"),
+  overviewGpaTrend: document.getElementById("overviewGpaTrend"),
+  gpaTrendLarge: document.getElementById("gpaTrendLarge"),
   inputTabs: [...document.querySelectorAll(".panel-tab")],
   inputPanels: [...document.querySelectorAll(".input-panel")],
   resultTabs: [...document.querySelectorAll(".result-tab")],
@@ -62,6 +74,10 @@ function formatMaybeNumber(value) {
   return number.toFixed(2);
 }
 
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
 function setButtonsDisabled(disabled) {
   [
     els.koanImportButton,
@@ -84,6 +100,11 @@ function setEngineState(kind, title, detail) {
   els.engineStatus.className = `engine-status ${kind}`;
   els.engineStatus.textContent = title;
   els.engineDetail.textContent = detail;
+}
+
+function setImportDock(open) {
+  els.importDockBody.classList.toggle("is-open", open);
+  els.toggleImportDock.textContent = open ? "入力を閉じる" : "入力を開く";
 }
 
 function activateTab(buttons, panels, targetId) {
@@ -176,10 +197,243 @@ function renderCourseRows(rows) {
     .join("");
 }
 
+function buildDonutSvg(percent, accent = "sun", size = 220, stroke = 18) {
+  const safePercent = clamp(percent, 0, 1);
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const dash = circumference * safePercent;
+  const gradientId = `grad-${accent}-${Math.random().toString(36).slice(2, 8)}`;
+
+  const stops =
+    accent === "cyan"
+      ? ['<stop offset="0%" stop-color="#67d8ff" />', '<stop offset="100%" stop-color="#8cf0bf" />']
+      : accent === "mint"
+        ? ['<stop offset="0%" stop-color="#8cf0bf" />', '<stop offset="100%" stop-color="#67d8ff" />']
+        : ['<stop offset="0%" stop-color="#ffc978" />', '<stop offset="100%" stop-color="#ff9f87" />'];
+
+  return `
+    <svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" aria-hidden="true">
+      <defs>
+        <linearGradient id="${gradientId}" x1="0%" y1="0%" x2="100%" y2="100%">
+          ${stops.join("")}
+        </linearGradient>
+      </defs>
+      <circle cx="${size / 2}" cy="${size / 2}" r="${radius}" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="${stroke}" />
+      <circle
+        cx="${size / 2}"
+        cy="${size / 2}"
+        r="${radius}"
+        fill="none"
+        stroke="url(#${gradientId})"
+        stroke-width="${stroke}"
+        stroke-linecap="round"
+        stroke-dasharray="${dash} ${circumference - dash}"
+        transform="rotate(-90 ${size / 2} ${size / 2})"
+      />
+    </svg>
+  `;
+}
+
+function renderHeroDonut(summary, deficitCount, warningCount) {
+  const earned = Number(summary.total_earned || 0);
+  const percent = clamp(earned / 130, 0, 1);
+  const statusText =
+    summary.tone === "ok"
+      ? "卒業圏内"
+      : summary.tone === "risk"
+        ? "条件未充足"
+        : summary.tone === "warn"
+          ? "要件不足"
+          : "待機中";
+
+  els.heroDonut.innerHTML = `
+    <div class="donut-layout">
+      <div class="donut-center">
+        ${buildDonutSvg(percent, "sun", 220, 18)}
+      </div>
+      <div class="donut-legend">
+        <div class="donut-legend-row">
+          <span>取得単位</span>
+          <strong>${earned} / 130</strong>
+        </div>
+        <div class="donut-legend-row">
+          <span>不足要件</span>
+          <strong>${deficitCount} 件</strong>
+        </div>
+        <div class="donut-legend-row">
+          <span>警告 / 超過</span>
+          <strong>${warningCount} 件</strong>
+        </div>
+      </div>
+    </div>
+  `;
+
+  els.heroStatusLabel.textContent = statusText;
+  els.heroGpaCredits.textContent = String(summary.gpa_credits ?? 0);
+}
+
+function renderCompletionViz(summary, deficitCount, warningCount) {
+  const earned = Number(summary.total_earned || 0);
+  const total = 130;
+  const percent = clamp(earned / total, 0, 1);
+
+  els.completionViz.innerHTML = `
+    <div class="donut-layout">
+      <div class="donut-center">
+        ${buildDonutSvg(percent, "sun", 250, 20)}
+      </div>
+      <div class="donut-legend">
+        <div class="donut-legend-row">
+          <span>到達率</span>
+          <strong>${Math.round(percent * 100)}%</strong>
+        </div>
+        <div class="donut-legend-row">
+          <span>残り単位</span>
+          <strong>${summary.deficit}</strong>
+        </div>
+        <div class="donut-legend-row">
+          <span>不足要件</span>
+          <strong>${deficitCount} 件</strong>
+        </div>
+        <div class="donut-legend-row">
+          <span>警告 / 超過</span>
+          <strong>${warningCount} 件</strong>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderCategoryBars(progressRows) {
+  const topLevelRows = progressRows.filter((row) => row.name === "合計");
+  if (!topLevelRows.length) {
+    els.categoryBars.innerHTML = '<div class="empty-cell">データ取込後に表示されます。</div>';
+    return;
+  }
+
+  els.categoryBars.innerHTML = topLevelRows
+    .map((row, index) => {
+      const percent = row.required > 0 ? clamp(row.earned / row.required, 0, 1) : 0;
+      const fillClass = categoryFillClasses[index % categoryFillClasses.length];
+      return `
+        <div class="bar-row">
+          <div class="bar-label-row">
+            <strong>${escapeHtml(row.group)}</strong>
+            <span>${escapeHtml(row.earned)} / ${escapeHtml(row.required)}</span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill ${fillClass}" style="width:${percent * 100}%"></div>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function buildLineChart(rows, { width, height, accent }) {
+  if (!rows.length) {
+    return `
+      <div class="line-chart-shell">
+        <div class="empty-cell">GPA 対象科目を読み込むと表示されます。</div>
+      </div>
+    `;
+  }
+
+  const paddingX = 26;
+  const paddingTop = 22;
+  const paddingBottom = 28;
+  const plotWidth = width - paddingX * 2;
+  const plotHeight = height - paddingTop - paddingBottom;
+  const maxY = 4;
+
+  const points = rows.map((row, index) => {
+    const x = rows.length === 1 ? width / 2 : paddingX + (plotWidth * index) / (rows.length - 1);
+    const y = paddingTop + plotHeight - (clamp(Number(row.term_gpa || 0), 0, maxY) / maxY) * plotHeight;
+    return { x, y, label: row.term, value: Number(row.term_gpa || 0) };
+  });
+
+  const path = points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
+  const areaPath = `${path} L ${points[points.length - 1].x} ${height - paddingBottom} L ${points[0].x} ${height - paddingBottom} Z`;
+  const latest = rows[rows.length - 1];
+  const highest = rows.reduce((acc, row) => Math.max(acc, Number(row.term_gpa || 0)), 0);
+
+  const gradientId = `line-grad-${accent}-${Math.random().toString(36).slice(2, 8)}`;
+  const accentStops =
+    accent === "mint"
+      ? ['<stop offset="0%" stop-color="#8cf0bf" />', '<stop offset="100%" stop-color="#67d8ff" />']
+      : ['<stop offset="0%" stop-color="#67d8ff" />', '<stop offset="100%" stop-color="#ffc978" />'];
+
+  const pointsMarkup = points
+    .map(
+      (point) => `
+        <circle cx="${point.x}" cy="${point.y}" r="4.5" fill="#091521" stroke="url(#${gradientId})" stroke-width="3" />
+      `,
+    )
+    .join("");
+
+  const labelsMarkup = points
+    .map(
+      (point) => `
+        <text x="${point.x}" y="${height - 6}" text-anchor="middle" fill="rgba(239,247,251,0.58)" font-size="11">
+          ${escapeHtml(point.label)}
+        </text>
+      `,
+    )
+    .join("");
+
+  return `
+    <div class="line-chart-shell">
+      <svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" aria-hidden="true">
+        <defs>
+          <linearGradient id="${gradientId}" x1="0%" y1="0%" x2="100%" y2="0%">
+            ${accentStops.join("")}
+          </linearGradient>
+          <linearGradient id="${gradientId}-area" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="rgba(103,216,255,0.28)" />
+            <stop offset="100%" stop-color="rgba(103,216,255,0.02)" />
+          </linearGradient>
+        </defs>
+        <line x1="${paddingX}" y1="${paddingTop}" x2="${paddingX}" y2="${height - paddingBottom}" stroke="rgba(255,255,255,0.12)" stroke-width="1" />
+        <line x1="${paddingX}" y1="${height - paddingBottom}" x2="${width - paddingX}" y2="${height - paddingBottom}" stroke="rgba(255,255,255,0.12)" stroke-width="1" />
+        <path d="${areaPath}" fill="url(#${gradientId}-area)" />
+        <path d="${path}" fill="none" stroke="url(#${gradientId})" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+        ${pointsMarkup}
+        ${labelsMarkup}
+      </svg>
+      <div class="line-chart-note">
+        <div>
+          <span>直近学期</span>
+          <strong>${escapeHtml(latest.term)}</strong>
+        </div>
+        <div>
+          <span>最高期別 GPA</span>
+          <strong>${formatMaybeNumber(highest)}</strong>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderGpaCharts(termRows) {
+  els.overviewGpaTrend.innerHTML = buildLineChart(termRows, { width: 360, height: 220, accent: "cyan" });
+  els.gpaTrendLarge.innerHTML = buildLineChart(termRows, { width: 720, height: 300, accent: "mint" });
+}
+
+function renderSummaryPills(summary, deficits, warnings) {
+  const pills = [
+    `総不足 ${summary.deficit} 単位`,
+    `不足要件 ${deficits.length} 件`,
+    `警告 / 超過 ${warnings.length} 件`,
+  ];
+  els.summaryPills.innerHTML = pills.map((pill) => `<span class="summary-pill">${escapeHtml(pill)}</span>`).join("");
+}
+
 function renderPayload(payload) {
   appState = payload.state;
 
   const summary = payload.summary;
+  const warningItems = [...payload.warnings, ...payload.overflow];
+
   els.noticeText.textContent = payload.notice || "待機中です。";
   els.metricCredits.textContent = `${summary.total_earned} / 130`;
   els.metricGpa.textContent = formatMaybeNumber(summary.gpa);
@@ -187,13 +441,14 @@ function renderPayload(payload) {
   els.metricCourses.textContent = String(appState.courses.length);
   els.headlineText.textContent = summary.message;
   els.headlineSubtext.textContent = `データソース: ${appState.source || "blank"} / GPA対象単位: ${summary.gpa_credits}`;
-  els.headlineCard.classList.remove("ok", "warn", "risk");
-  if (summary.tone && summary.tone !== "idle") {
-    els.headlineCard.classList.add(summary.tone);
-  }
   els.exportJson.value = payload.json_text;
 
-  const warningItems = [...payload.warnings, ...payload.overflow];
+  renderSummaryPills(summary, payload.deficits, warningItems);
+  renderHeroDonut(summary, payload.deficits.length, warningItems.length);
+  renderCompletionViz(summary, payload.deficits.length, warningItems.length);
+  renderCategoryBars(payload.progress_rows);
+  renderGpaCharts(payload.term_rows);
+
   renderList(els.deficitList, payload.deficits, "不足要件はありません。");
   renderList(els.warningList, warningItems, "警告はありません。");
   renderProgressRows(payload.progress_rows);
@@ -251,6 +506,7 @@ async function handleKoanImport() {
     });
     renderPayload(payload);
     activateTab(els.resultTabs, els.resultPanels, "overviewPanel");
+    setImportDock(false);
   } catch (error) {
     els.noticeText.textContent = `読込失敗: ${error.message}`;
   } finally {
@@ -274,6 +530,7 @@ async function handleJsonImport() {
     });
     renderPayload(payload);
     activateTab(els.resultTabs, els.resultPanels, "overviewPanel");
+    setImportDock(false);
   } catch (error) {
     els.noticeText.textContent = `読込失敗: ${error.message}`;
   } finally {
@@ -289,6 +546,7 @@ async function handleClear() {
     els.jsonText.value = "";
     renderPayload(payload);
     activateTab(els.resultTabs, els.resultPanels, "overviewPanel");
+    setImportDock(true);
   } catch (error) {
     els.noticeText.textContent = `初期化失敗: ${error.message}`;
   } finally {
@@ -304,6 +562,7 @@ function insertSampleHeader() {
   }
   els.koanText.focus();
   els.noticeText.textContent = "KOAN の見本ヘッダーを入力欄に入れました。";
+  setImportDock(true);
 }
 
 async function copyJson() {
@@ -353,6 +612,10 @@ els.resultTabs.forEach((button) => {
   );
 });
 
+els.toggleImportDock.addEventListener("click", () => {
+  setImportDock(!els.importDockBody.classList.contains("is-open"));
+});
+
 els.koanImportButton.addEventListener("click", handleKoanImport);
 els.jsonImportButton.addEventListener("click", handleJsonImport);
 els.clearButton.addEventListener("click", handleClear);
@@ -360,4 +623,5 @@ els.copyJsonButton.addEventListener("click", copyJson);
 els.downloadJsonButton.addEventListener("click", downloadJson);
 els.sampleHeaderButton.addEventListener("click", insertSampleHeader);
 
+setImportDock(false);
 initialize();
