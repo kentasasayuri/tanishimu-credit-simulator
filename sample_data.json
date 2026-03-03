@@ -1,0 +1,176 @@
+{
+  "student_name": "阪大太郎",
+  "enrollment_year": 2025,
+  "courses": [
+    {
+      "name": "学問への扉（経済学への招待）",
+      "credits": 2,
+      "category_id": "gateway",
+      "grade": "A",
+      "year": 2025,
+      "semester": "春〜夏"
+    },
+    {
+      "name": "ミクロ経済学の考え方",
+      "credits": 2,
+      "category_id": "foundation",
+      "grade": "A",
+      "year": 2025,
+      "semester": "春〜夏"
+    },
+    {
+      "name": "マクロ経済学の考え方",
+      "credits": 2,
+      "category_id": "foundation",
+      "grade": "B+",
+      "year": 2025,
+      "semester": "秋〜冬"
+    },
+    {
+      "name": "統計学",
+      "credits": 2,
+      "category_id": "foundation",
+      "grade": "A+",
+      "year": 2025,
+      "semester": "春〜夏"
+    },
+    {
+      "name": "経済数学入門",
+      "credits": 2,
+      "category_id": "foundation",
+      "grade": "A",
+      "year": 2025,
+      "semester": "春〜夏"
+    },
+    {
+      "name": "現代の経営",
+      "credits": 2,
+      "category_id": "foundation",
+      "grade": "B",
+      "year": 2025,
+      "semester": "秋〜冬"
+    },
+    {
+      "name": "情報社会基礎",
+      "credits": 2,
+      "category_id": "info",
+      "grade": "A",
+      "year": 2025,
+      "semester": "春〜夏"
+    },
+    {
+      "name": "スマート・スポーツリテラシー",
+      "credits": 2,
+      "category_id": "health_sports",
+      "grade": "A",
+      "year": 2025,
+      "semester": "春〜夏"
+    },
+    {
+      "name": "総合英語1",
+      "credits": 1,
+      "category_id": "lang1",
+      "grade": "A",
+      "year": 2025,
+      "semester": "春〜夏"
+    },
+    {
+      "name": "総合英語2",
+      "credits": 1,
+      "category_id": "lang1",
+      "grade": "A",
+      "year": 2025,
+      "semester": "秋〜冬"
+    },
+    {
+      "name": "実践英語(CALL)1",
+      "credits": 1,
+      "category_id": "lang1",
+      "grade": "B+",
+      "year": 2025,
+      "semester": "春〜夏"
+    },
+    {
+      "name": "実践英語(CALL)2",
+      "credits": 1,
+      "category_id": "lang1",
+      "grade": "B",
+      "year": 2025,
+      "semester": "秋〜冬"
+    },
+    {
+      "name": "ドイツ語初級Ⅰ-1",
+      "credits": 1,
+      "category_id": "lang2",
+      "grade": "A",
+      "year": 2025,
+      "semester": "春〜夏"
+    },
+    {
+      "name": "ドイツ語初級Ⅰ-2",
+      "credits": 1,
+      "category_id": "lang2",
+      "grade": "B+",
+      "year": 2025,
+      "semester": "秋〜冬"
+    },
+    {
+      "name": "グローバル理解（ドイツ語）1",
+      "credits": 2,
+      "category_id": "global_understanding",
+      "grade": "A",
+      "year": 2025,
+      "semester": "春〜夏"
+    },
+    {
+      "name": "解析学入門",
+      "credits": 2,
+      "category_id": "specialized_basic",
+      "grade": "B",
+      "year": 2025,
+      "semester": "春〜夏"
+    },
+    {
+      "name": "線形代数学入門",
+      "credits": 2,
+      "category_id": "specialized_basic",
+      "grade": "A",
+      "year": 2025,
+      "semester": "秋〜冬"
+    },
+    {
+      "name": "ミクロ経済",
+      "credits": 4,
+      "category_id": "elective_required1",
+      "grade": "A",
+      "year": 2025,
+      "semester": "秋〜冬"
+    },
+    {
+      "name": "経営計算システム",
+      "credits": 4,
+      "category_id": "elective_required1",
+      "grade": "B+",
+      "year": 2025,
+      "semester": "秋〜冬"
+    },
+    {
+      "name": "哲学の基礎Ａ",
+      "credits": 2,
+      "category_id": "teaching",
+      "grade": "A",
+      "year": 2025,
+      "semester": "春〜夏",
+      "note": "第5表: 選択科目（教職）→自由選択のみに算入"
+    },
+    {
+      "name": "教育原理",
+      "credits": 2,
+      "category_id": "teacher_training",
+      "grade": "A",
+      "year": 2025,
+      "semester": "秋〜冬",
+      "note": "教職教育科目→卒業単位に算入しない"
+    }
+  ]
+}

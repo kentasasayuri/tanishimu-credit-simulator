@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+
+.codex_tmp/
+build/
+dist/
+
+current_student_data.json
+学生便覧/
+
+*.log
