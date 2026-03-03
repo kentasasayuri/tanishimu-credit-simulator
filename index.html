@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>単位趣味レーター Web</title>
+    <meta
+      name="description"
+      content="大阪大学経済学部向けの卒業要件・GPA チェッカー。KOAN の成績表を貼り付けるとブラウザ内だけで集計します。"
+    />
+    <link rel="stylesheet" href="./site.css" />
+    <script defer src="https://cdn.jsdelivr.net/pyodide/v0.28.2/full/pyodide.js"></script>
+    <script defer type="module" src="./site.js"></script>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">GitHub Pages / Browser Only</p>
+          <h1>単位趣味レーター Web</h1>
+          <p class="lede">
+            KOAN の「単位取得状況紹介」を貼り付けるだけで、卒業要件と GPA をこのブラウザ内で集計します。
+            サーバー保存はしません。
+          </p>
+          <div class="hero-badges">
+            <span>大阪大学 経済学部向け</span>
+            <span>KOAN コピペ対応</span>
+            <span>個人成績は初期表示なし</span>
+          </div>
+        </div>
+        <div class="hero-status card">
+          <div class="mini-label">Engine</div>
+          <div id="engineStatus" class="engine-status loading">起動中</div>
+          <p id="engineDetail" class="engine-detail">
+            Python ロジックをブラウザ内に読み込んでいます。初回は数秒かかります。
+          </p>
+        </div>
+      </header>
+
+      <main class="main-grid">
+        <section class="control-stack">
+          <article class="card control-card">
+            <div class="section-head">
+              <h2>KOAN 反映</h2>
+              <p>ヘッダー行つきの表をそのまま貼り付けてください。</p>
+            </div>
+            <label class="field-label" for="koanText">KOAN コピペ欄</label>
+            <textarea
+              id="koanText"
+              class="input-area"
+              placeholder="No.	科目詳細区分	科目小区分	科目名	…"
+            ></textarea>
+            <div class="action-row">
+              <div class="mode-switch" role="radiogroup" aria-label="読み込み方式">
+                <label><input type="radio" name="importMode" value="replace" checked /> 置換</label>
+                <label><input type="radio" name="importMode" value="append" /> 追記</label>
+              </div>
+              <button id="koanImportButton" class="primary-button" type="button">KOAN を反映</button>
+            </div>
+          </article>
+
+          <article class="card control-card">
+            <div class="section-head">
+              <h2>JSON 反映</h2>
+              <p>既存 JSON を貼り付けて、そのまま復元できます。</p>
+            </div>
+            <label class="field-label" for="jsonText">JSON 入力欄</label>
+            <textarea
+              id="jsonText"
+              class="input-area compact"
+              placeholder='{"student_name":"","enrollment_year":2025,"courses":[]}'
+            ></textarea>
+            <div class="action-row">
+              <div class="secondary-actions">
+                <button id="jsonImportButton" class="secondary-button" type="button">JSON を反映</button>
+                <button id="clearButton" class="ghost-button" type="button">クリア</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="card notice-card">
+            <div class="mini-label">Notice</div>
+            <p id="noticeText">読み込み待機中です。</p>
+          </article>
+        </section>
+
+        <section class="dashboard">
+          <div class="metrics-grid">
+            <article class="metric-card">
+              <div class="mini-label">取得単位</div>
+              <div id="metricCredits" class="metric-value">0 / 130</div>
+              <p>卒業判定に算入される単位</p>
+            </article>
+            <article class="metric-card">
+              <div class="mini-label">通算 GPA</div>
+              <div id="metricGpa" class="metric-value">--</div>
+              <p>GPA 対象科目のみ</p>
+            </article>
+            <article class="metric-card">
+              <div class="mini-label">不足単位</div>
+              <div id="metricDeficit" class="metric-value">130</div>
+              <p>総単位の残り</p>
+            </article>
+            <article class="metric-card">
+              <div class="mini-label">登録科目数</div>
+              <div id="metricCourses" class="metric-value">0</div>
+              <p>現在の取り込み件数</p>
+            </article>
+          </div>
+
+          <article class="card headline-card">
+            <div class="mini-label">Status</div>
+            <h2 id="headlineText">KOAN の成績表か JSON を読み込むと、ここに集計結果が表示されます。</h2>
+            <p id="headlineSubtext">ローカル処理のみ。ページ更新でデータは消えます。</p>
+          </article>
+
+          <div class="status-grid">
+            <article class="card status-card">
+              <div class="section-head">
+                <h2>不足要件</h2>
+                <p>必修不足と単位不足をまとめて表示します。</p>
+              </div>
+              <ul id="deficitList" class="bullet-list empty">
+                <li>データ取込後に表示されます。</li>
+              </ul>
+            </article>
+            <article class="card status-card">
+              <div class="section-head">
+                <h2>警告 / 超過</h2>
+                <p>分類不能・不開講・自由選択への流入を確認できます。</p>
+              </div>
+              <ul id="warningList" class="bullet-list empty">
+                <li>データ取込後に表示されます。</li>
+              </ul>
+            </article>
+          </div>
+
+          <article class="card table-card">
+            <div class="section-head">
+              <h2>進捗一覧</h2>
+              <p>区分ごとの達成状況です。</p>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>区分</th>
+                    <th>小区分</th>
+                    <th>修得</th>
+                    <th>要件</th>
+                    <th>状態</th>
+                  </tr>
+                </thead>
+                <tbody id="progressTableBody">
+                  <tr>
+                    <td colspan="5" class="empty-cell">データ取込後に表示されます。</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+
+          <div class="dual-grid">
+            <article class="card table-card">
+              <div class="section-head">
+                <h2>GPA 推移</h2>
+                <p>期別と通算の両方を表示します。</p>
+              </div>
+              <div class="table-wrap compact-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>学期</th>
+                      <th>期別 GPA</th>
+                      <th>通算 GPA</th>
+                      <th>対象単位</th>
+                      <th>科目数</th>
+                    </tr>
+                  </thead>
+                  <tbody id="termTableBody">
+                    <tr>
+                      <td colspan="5" class="empty-cell">データ取込後に表示されます。</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="card table-card">
+              <div class="section-head">
+                <h2>現在のデータ JSON</h2>
+                <p>そのまま保存・再読込できます。</p>
+              </div>
+              <textarea id="exportJson" class="json-view" readonly></textarea>
+              <div class="secondary-actions footer-actions">
+                <button id="copyJsonButton" class="secondary-button" type="button">JSON をコピー</button>
+                <button id="downloadJsonButton" class="ghost-button" type="button">JSON を保存</button>
+              </div>
+            </article>
+          </div>
+
+          <article class="card table-card">
+            <div class="section-head">
+              <h2>科目一覧</h2>
+              <p>反映済み科目の一覧です。</p>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>年度</th>
+                    <th>学期</th>
+                    <th>科目名</th>
+                    <th>区分</th>
+                    <th>単位</th>
+                    <th>評語</th>
+                  </tr>
+                </thead>
+                <tbody id="courseTableBody">
+                  <tr>
+                    <td colspan="6" class="empty-cell">データ取込後に表示されます。</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>
