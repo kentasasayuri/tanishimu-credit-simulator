@@ -46,6 +46,7 @@ const els = {
   courseTableBody: document.getElementById("courseTableBody"),
   completionViz: document.getElementById("completionViz"),
   categoryBars: document.getElementById("categoryBars"),
+  categoryDetails: document.getElementById("categoryDetails"),
   overviewGpaTrend: document.getElementById("overviewGpaTrend"),
   gpaTrendLarge: document.getElementById("gpaTrendLarge"),
   inputTabs: [...document.querySelectorAll(".panel-tab")],
@@ -330,6 +331,61 @@ function renderCategoryBars(progressRows) {
     .join("");
 }
 
+function renderCategoryDetails(progressRows) {
+  const topLevelRows = progressRows.filter((row) => row.name === "合計");
+  if (!topLevelRows.length) {
+    els.categoryDetails.innerHTML = '<div class="empty-cell">データ取込後に表示されます。</div>';
+    return;
+  }
+
+  const cards = topLevelRows.map((row, index) => {
+    const children = progressRows.filter((child) => child.group === row.group && child.name !== "合計");
+    const percent = row.required > 0 ? clamp(row.earned / row.required, 0, 1) : 0;
+    const fillClass = categoryFillClasses[index % categoryFillClasses.length];
+
+    const childMarkup = children.length
+      ? children
+          .map((child) => {
+            const childPercent = child.required > 0 ? clamp(child.earned / child.required, 0, 1) : 0;
+            const childTone = child.status === "達成" ? "ok" : "warn";
+            return `
+              <div class="detail-subrow">
+                <div class="detail-subhead">
+                  <strong>${escapeHtml(child.name)}</strong>
+                  <span>${escapeHtml(child.earned)} / ${escapeHtml(child.required)}</span>
+                </div>
+                <div class="bar-track thin-track">
+                  <div class="bar-fill ${fillClass}" style="width:${childPercent * 100}%"></div>
+                </div>
+                <span class="status-chip ${childTone}">${escapeHtml(child.status)}</span>
+              </div>
+            `;
+          })
+          .join("")
+      : '<div class="empty-cell">内訳はありません。</div>';
+
+    return `
+      <article class="detail-category-card">
+        <div class="detail-card-head">
+          <div>
+            <h3>${escapeHtml(row.group)}</h3>
+            <p>${escapeHtml(row.earned)} / ${escapeHtml(row.required)} 単位</p>
+          </div>
+          <span class="detail-percent">${Math.round(percent * 100)}%</span>
+        </div>
+        <div class="bar-track">
+          <div class="bar-fill ${fillClass}" style="width:${percent * 100}%"></div>
+        </div>
+        <div class="detail-subgrid">
+          ${childMarkup}
+        </div>
+      </article>
+    `;
+  });
+
+  els.categoryDetails.innerHTML = cards.join("");
+}
+
 function buildLineChart(rows, { width, height, accent }) {
   if (!rows.length) {
     return `
@@ -447,6 +503,7 @@ function renderPayload(payload) {
   renderHeroDonut(summary, payload.deficits.length, warningItems.length);
   renderCompletionViz(summary, payload.deficits.length, warningItems.length);
   renderCategoryBars(payload.progress_rows);
+  renderCategoryDetails(payload.progress_rows);
   renderGpaCharts(payload.term_rows);
 
   renderList(els.deficitList, payload.deficits, "不足要件はありません。");
