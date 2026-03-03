@@ -1027,3 +1027,27 @@ def get_overflow_summary(result):
             summary.append(f"{label}: {value} 単位")
 
     return summary
+
+
+def get_free_elective_breakdown(result):
+    """自由選択に吸収された単位の内訳を返す"""
+    details = result["free_elective_details"]
+    labels = {
+        "overflow_foundation": "基盤教養教育科目の余剰",
+        "overflow_advanced_lib": "高度教養教育科目の余剰",
+        "overflow_multilingual": "マルチリンガル教育科目の余剰",
+        "overflow_advanced_intl": "高度国際性涵養教育科目の余剰",
+        "overflow_elective": "専門教育科目の余剰",
+        "teaching": "選択科目（教職）",
+        "practical_lecture": "選択科目（実践講義）",
+        "advanced_seminar": "アドヴァンストセミナー",
+        "lang2_advanced": "第2外国語上級科目",
+        "other_dept": "他学部専門科目",
+    }
+
+    breakdown = []
+    for key, label in labels.items():
+        value = details.get(key, 0)
+        if value > 0:
+            breakdown.append({"label": label, "credits": value})
+    return breakdown

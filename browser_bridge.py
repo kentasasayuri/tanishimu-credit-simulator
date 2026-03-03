@@ -4,7 +4,14 @@ import json
 from typing import Any
 
 from requirements import CATEGORIES, TOTAL_REQUIRED, get_subcategory_name_by_id, normalize_grade
-from simulator import calculate_credits, calculate_gpa, get_deficit_summary, get_overflow_summary, parse_koan_credit_text
+from simulator import (
+    calculate_credits,
+    calculate_gpa,
+    get_deficit_summary,
+    get_free_elective_breakdown,
+    get_overflow_summary,
+    parse_koan_credit_text,
+)
 
 
 def _blank_state() -> dict[str, Any]:
@@ -157,6 +164,7 @@ def _render_payload(state: dict[str, Any], notice: str = "") -> dict[str, Any]:
             "deficits": [],
             "warnings": [],
             "overflow": [],
+            "free_elective_sources": [],
             "json_text": json.dumps(
                 {
                     "student_name": "",
@@ -181,6 +189,7 @@ def _render_payload(state: dict[str, Any], notice: str = "") -> dict[str, Any]:
         "deficits": get_deficit_summary(result),
         "warnings": result.get("warnings", []),
         "overflow": get_overflow_summary(result),
+        "free_elective_sources": get_free_elective_breakdown(result),
         "json_text": json.dumps(
             {
                 "student_name": state.get("student_name", ""),

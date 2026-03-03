@@ -262,7 +262,7 @@ function renderHeroDonut(summary, deficitCount, warningCount) {
           <strong>${deficitCount} 件</strong>
         </div>
         <div class="donut-legend-row">
-          <span>警告 / 超過</span>
+          <span>警告</span>
           <strong>${warningCount} 件</strong>
         </div>
       </div>
@@ -297,7 +297,7 @@ function renderCompletionViz(summary, deficitCount, warningCount) {
           <strong>${deficitCount} 件</strong>
         </div>
         <div class="donut-legend-row">
-          <span>警告 / 超過</span>
+          <span>警告</span>
           <strong>${warningCount} 件</strong>
         </div>
       </div>
@@ -331,7 +331,7 @@ function renderCategoryBars(progressRows) {
     .join("");
 }
 
-function renderCategoryDetails(progressRows) {
+function renderCategoryDetails(progressRows, freeElectiveSources = []) {
   const topLevelRows = progressRows.filter((row) => row.name === "合計");
   if (!topLevelRows.length) {
     els.categoryDetails.innerHTML = '<div class="empty-cell">データ取込後に表示されます。</div>';
@@ -342,6 +342,25 @@ function renderCategoryDetails(progressRows) {
     const children = progressRows.filter((child) => child.group === row.group && child.name !== "合計");
     const percent = row.required > 0 ? clamp(row.earned / row.required, 0, 1) : 0;
     const fillClass = categoryFillClasses[index % categoryFillClasses.length];
+    const sourceMarkup =
+      !children.length && freeElectiveSources.length
+        ? freeElectiveSources
+            .map((source) => {
+              const sourcePercent = clamp(source.credits / Math.max(row.required, 1), 0, 1);
+              return `
+                <div class="detail-subrow">
+                  <div class="detail-subhead">
+                    <strong>${escapeHtml(source.label)}</strong>
+                    <span>${escapeHtml(source.credits)} 単位</span>
+                  </div>
+                  <div class="bar-track thin-track">
+                    <div class="bar-fill ${fillClass}" style="width:${sourcePercent * 100}%"></div>
+                  </div>
+                </div>
+              `;
+            })
+            .join("")
+        : "";
 
     const childMarkup = children.length
       ? children
@@ -362,7 +381,7 @@ function renderCategoryDetails(progressRows) {
             `;
           })
           .join("")
-      : '<div class="empty-cell">内訳はありません。</div>';
+      : sourceMarkup || '<div class="empty-cell">内訳はありません。</div>';
 
     return `
       <article class="detail-category-card">
@@ -479,7 +498,7 @@ function renderSummaryPills(summary, deficits, warnings) {
   const pills = [
     `総不足 ${summary.deficit} 単位`,
     `不足要件 ${deficits.length} 件`,
-    `警告 / 超過 ${warnings.length} 件`,
+    `警告 ${warnings.length} 件`,
   ];
   els.summaryPills.innerHTML = pills.map((pill) => `<span class="summary-pill">${escapeHtml(pill)}</span>`).join("");
 }
@@ -488,7 +507,7 @@ function renderPayload(payload) {
   appState = payload.state;
 
   const summary = payload.summary;
-  const warningItems = [...payload.warnings, ...payload.overflow];
+  const warningItems = payload.warnings || [];
 
   els.noticeText.textContent = payload.notice || "待機中です。";
   els.metricCredits.textContent = `${summary.total_earned} / 130`;
@@ -503,7 +522,7 @@ function renderPayload(payload) {
   renderHeroDonut(summary, payload.deficits.length, warningItems.length);
   renderCompletionViz(summary, payload.deficits.length, warningItems.length);
   renderCategoryBars(payload.progress_rows);
-  renderCategoryDetails(payload.progress_rows);
+  renderCategoryDetails(payload.progress_rows, payload.free_elective_sources || []);
   renderGpaCharts(payload.term_rows);
 
   renderList(els.deficitList, payload.deficits, "不足要件はありません。");
