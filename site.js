@@ -1,4 +1,5 @@
 const PYODIDE_INDEX_URL = "https://cdn.jsdelivr.net/pyodide/v0.28.2/full/";
+const ASSET_VERSION = "20260304-3";
 
 const KOAN_HEADER_SAMPLE =
   "No.\t科目詳細区分\t科目小区分\t科目名\tリーディング\t高度教養\t単位数\t修得年度\t修得学期\t評語\t合否\n";
@@ -623,7 +624,7 @@ function renderPayload(payload) {
 async function loadPythonModules() {
   const files = ["requirements.py", "simulator.py", "browser_bridge.py"];
   for (const file of files) {
-    const response = await fetch(`./${file}`);
+    const response = await fetch(`./${file}?v=${ASSET_VERSION}`, { cache: "no-store" });
     if (!response.ok) {
       throw new Error(`${file} の取得に失敗しました。`);
     }
