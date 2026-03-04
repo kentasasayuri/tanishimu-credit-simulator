@@ -52,6 +52,14 @@ _STRICT_CATEGORY_IDS = {
     "lang2_advanced",
 }
 
+_OVERFLOW_TO_ELECTIVE_SOURCE_IDS = {
+    sub["id"]
+    for category in CATEGORIES
+    for sub in category.get("subcategories", [])
+    if sub.get("overflow_target") == "elective"
+}
+_OVERFLOW_TO_ELECTIVE_SOURCE_IDS.add("research_ab")
+
 _GLOBAL_PREFIXES = (
     "国際コミュニケーション演習",
     "地域言語文化演習",
@@ -388,6 +396,7 @@ def _build_result():
         "non_counting": 0,
         "warnings": [],
         "rule_deficits": [],
+        "rule_deficit_details": [],
         "rule_deficit_ids": set(),
     }
 
@@ -433,6 +442,12 @@ def _add_warning(result, message):
 
 def _add_rule_deficit(result, subcategory_id, message):
     result["rule_deficits"].append(message)
+    result["rule_deficit_details"].append(
+        {
+            "subcategory_id": subcategory_id,
+            "message": message,
+        }
+    )
     result["rule_deficit_ids"].add(subcategory_id)
 
 
@@ -626,6 +641,8 @@ def _prepare_course(course, index, result, enrollment_year):
         allowed_categories = {inferred_category}
         if inferred.get("advanced_intl_eligible"):
             allowed_categories.add("advanced_intl")
+        if selected_category_id == "elective" and inferred_category in _OVERFLOW_TO_ELECTIVE_SOURCE_IDS:
+            allowed_categories.add("elective")
 
         if selected_category_id not in allowed_categories:
             _add_warning(

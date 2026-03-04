@@ -114,6 +114,110 @@ def _build_progress_rows(result: dict[str, Any]) -> list[dict[str, Any]]:
     return rows
 
 
+def _build_requirement_groups(
+    result: dict[str, Any],
+    free_elective_sources: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    rule_messages_by_subcategory: dict[str, list[str]] = {}
+    for detail in result.get("rule_deficit_details", []):
+        subcategory_id = detail.get("subcategory_id")
+        if not subcategory_id:
+            continue
+        rule_messages_by_subcategory.setdefault(subcategory_id, []).append(detail["message"])
+
+    groups: list[dict[str, Any]] = []
+    for category in CATEGORIES:
+        category_data = result["categories"][category["id"]]
+        items: list[dict[str, Any]] = []
+
+        for sub in category.get("subcategories", []):
+            sub_data = category_data["subcategories"][sub["id"]]
+            rule_messages = rule_messages_by_subcategory.get(sub["id"], [])
+            credit_deficit = max(sub_data["required"] - sub_data["earned"], 0)
+            items.append(
+                {
+                    "id": sub["id"],
+                    "name": sub["name"],
+                    "earned": sub_data["earned"],
+                    "required": sub_data["required"],
+                    "raw_earned": sub_data["raw_earned"],
+                    "deficit": credit_deficit,
+                    "percent": (
+                        min(sub_data["earned"] / sub_data["required"], 1.0)
+                        if sub_data["required"] > 0
+                        else 0.0
+                    ),
+                    "status": "達成" if credit_deficit == 0 and not rule_messages else "不足",
+                    "rule_messages": rule_messages,
+                }
+            )
+
+        category_deficit = max(category_data["required"] - category_data["earned"], 0)
+        unmet_item_count = sum(1 for item in items if item["status"] != "達成")
+        groups.append(
+            {
+                "id": category["id"],
+                "name": category["name"],
+                "earned": category_data["earned"],
+                "required": category_data["required"],
+                "raw_earned": category_data["raw_earned"],
+                "deficit": category_deficit,
+                "percent": (
+                    min(category_data["earned"] / category_data["required"], 1.0)
+                    if category_data["required"] > 0
+                    else 0.0
+                ),
+                "status": "達成" if category_deficit == 0 and unmet_item_count == 0 else "不足",
+                "unmet_item_count": unmet_item_count,
+                "items": items,
+                "sources": free_elective_sources if category["id"] == "free_elective" else [],
+            }
+        )
+    return groups
+
+
+def _build_deficit_cards(
+    result: dict[str, Any],
+    requirement_groups: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    cards: list[dict[str, Any]] = []
+    total_deficit = max(result["total_required"] - result["total_earned"], 0)
+    if total_deficit > 0:
+        cards.append(
+            {
+                "title": "総単位",
+                "value": f"あと {total_deficit} 単位",
+                "tone": "warn",
+                "lines": [f"{result['total_earned']} / {result['total_required']} 単位"],
+            }
+        )
+
+    for group in requirement_groups:
+        lines: list[str] = []
+        if group["items"]:
+            for item in group["items"]:
+                if item["rule_messages"]:
+                    lines.extend(item["rule_messages"])
+                elif item["deficit"] > 0:
+                    lines.append(f"{item['name']}: あと {item['deficit']} 単位不足")
+        elif group["deficit"] > 0:
+            lines.append(f"{group['name']}: あと {group['deficit']} 単位不足")
+
+        if not lines:
+            continue
+
+        cards.append(
+            {
+                "title": group["name"],
+                "value": f"{group['earned']} / {group['required']} 単位",
+                "tone": "warn",
+                "lines": lines,
+            }
+        )
+
+    return cards
+
+
 def _build_term_rows(gpa: dict[str, Any]) -> list[dict[str, Any]]:
     rows = []
     for term in gpa.get("terms", []):
@@ -159,6 +263,8 @@ def _render_payload(state: dict[str, Any], notice: str = "") -> dict[str, Any]:
                 "gpa_credits": 0,
             },
             "progress_rows": [],
+            "requirement_groups": [],
+            "deficit_cards": [],
             "term_rows": [],
             "course_rows": [],
             "deficits": [],
@@ -178,18 +284,22 @@ def _render_payload(state: dict[str, Any], notice: str = "") -> dict[str, Any]:
 
     result = calculate_credits(state["courses"], state.get("enrollment_year", 2025))
     gpa = calculate_gpa(state["courses"])
+    free_elective_sources = get_free_elective_breakdown(result)
+    requirement_groups = _build_requirement_groups(result, free_elective_sources)
 
     return {
         "state": state,
         "notice": notice,
         "summary": _headline(result, gpa),
         "progress_rows": _build_progress_rows(result),
+        "requirement_groups": requirement_groups,
+        "deficit_cards": _build_deficit_cards(result, requirement_groups),
         "term_rows": _build_term_rows(gpa),
         "course_rows": _build_course_rows(state),
         "deficits": get_deficit_summary(result),
         "warnings": result.get("warnings", []),
         "overflow": get_overflow_summary(result),
-        "free_elective_sources": get_free_elective_breakdown(result),
+        "free_elective_sources": free_elective_sources,
         "json_text": json.dumps(
             {
                 "student_name": state.get("student_name", ""),
