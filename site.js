@@ -224,6 +224,53 @@ function renderRequirementGroups(target, groups) {
   target.innerHTML = groups.map((group, index) => buildRequirementGroupMarkup(group, index)).join("");
 }
 
+function buildRequirementGroupsFromProgressRows(progressRows, freeElectiveSources = []) {
+  if (!Array.isArray(progressRows) || !progressRows.length) {
+    return [];
+  }
+
+  const groupRows = progressRows.filter((row) => row?.name === "合計");
+  return groupRows.map((groupRow) => {
+    const items = progressRows
+      .filter((row) => row?.group === groupRow.group && row?.name !== "合計")
+      .map((row) => {
+        const earned = Number(row.earned || 0);
+        const required = Number(row.required || 0);
+        const deficit = Math.max(required - earned, 0);
+        return {
+          id: row.name,
+          name: row.name,
+          earned,
+          required,
+          raw_earned: earned,
+          deficit,
+          percent: required > 0 ? Math.min(earned / required, 1) : 0,
+          status: row.status || (deficit > 0 ? "不足" : "達成"),
+          rule_messages: [],
+        };
+      });
+
+    const earned = Number(groupRow.earned || 0);
+    const required = Number(groupRow.required || 0);
+    const deficit = Math.max(required - earned, 0);
+    const unresolvedItems = items.filter((item) => item.status !== "達成").length;
+
+    return {
+      id: groupRow.group,
+      name: groupRow.group,
+      earned,
+      required,
+      raw_earned: earned,
+      deficit,
+      percent: required > 0 ? Math.min(earned / required, 1) : 0,
+      status: groupRow.status || (deficit > 0 || unresolvedItems > 0 ? "不足" : "達成"),
+      unmet_item_count: unresolvedItems,
+      items,
+      sources: items.length ? [] : freeElectiveSources,
+    };
+  });
+}
+
 function renderDeficitShowcase(cards) {
   if (!cards.length) {
     els.deficitShowcase.innerHTML = `
@@ -259,6 +306,38 @@ function renderDeficitShowcase(cards) {
       `,
     )
     .join("");
+}
+
+function buildDeficitCardsFromDeficits(deficits, summary) {
+  if (!Array.isArray(deficits) || !deficits.length) {
+    return [];
+  }
+
+  const cards = [];
+  const totalLine = deficits.find((line) => String(line).startsWith("総単位数:"));
+  if (totalLine) {
+    cards.push({
+      title: "総単位",
+      value: `あと ${summary.deficit} 単位`,
+      tone: "warn",
+      lines: [totalLine],
+    });
+  }
+
+  const detailLines = deficits.filter((line) => line !== totalLine);
+  for (const line of detailLines) {
+    const separatorIndex = String(line).indexOf(":");
+    const title = separatorIndex >= 0 ? String(line).slice(0, separatorIndex).trim() : "不足要件";
+    const body = separatorIndex >= 0 ? String(line).slice(separatorIndex + 1).trim() : String(line);
+    cards.push({
+      title,
+      value: body,
+      tone: "warn",
+      lines: [line],
+    });
+  }
+
+  return cards;
 }
 
 function renderOverflowSummary(overflowItems, freeElectiveSources) {
@@ -509,7 +588,15 @@ function renderPayload(payload) {
 
   const summary = payload.summary;
   const warningItems = payload.warnings || [];
-  const requirementGroups = payload.requirement_groups || [];
+  const freeElectiveSources = payload.free_elective_sources || [];
+  const requirementGroups =
+    payload.requirement_groups?.length
+      ? payload.requirement_groups
+      : buildRequirementGroupsFromProgressRows(payload.progress_rows || [], freeElectiveSources);
+  const deficitCards =
+    payload.deficit_cards?.length
+      ? payload.deficit_cards
+      : buildDeficitCardsFromDeficits(payload.deficits || [], summary);
 
   els.noticeText.textContent = payload.notice || "待機中です。";
   els.metricCredits.textContent = `${summary.total_earned} / 130`;
@@ -524,8 +611,8 @@ function renderPayload(payload) {
   renderHeroDonut(summary, payload.deficits.length, warningItems.length);
   renderCompletionViz(summary, payload.deficits.length, warningItems.length);
   renderRequirementGroups(els.requirementGroups, requirementGroups);
-  renderDeficitShowcase(payload.deficit_cards || []);
-  renderOverflowSummary(payload.overflow || [], payload.free_elective_sources || []);
+  renderDeficitShowcase(deficitCards);
+  renderOverflowSummary(payload.overflow || [], freeElectiveSources);
   renderGpaCharts(payload.term_rows);
 
   renderList(els.warningList, warningItems, "警告はありません。");
