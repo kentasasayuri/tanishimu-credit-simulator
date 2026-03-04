@@ -1,5 +1,5 @@
 const PYODIDE_INDEX_URL = "https://cdn.jsdelivr.net/pyodide/v0.28.2/full/";
-const ASSET_VERSION = "20260304-6";
+const ASSET_VERSION = "20260304-7";
 
 const KOAN_HEADER_SAMPLE =
   "No.\t科目詳細区分\t科目小区分\t科目名\tリーディング\t高度教養\t単位数\t修得年度\t修得学期\t評語\t合否\n";
@@ -105,6 +105,190 @@ function updatePdfMeta() {
   els.pdfGeneratedAt.textContent = `出力日時: ${formatPrintTimestamp()}`;
 }
 
+function wait(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
+function clonePrintableNode(selector) {
+  const source = document.querySelector(selector);
+  if (!source) {
+    return null;
+  }
+
+  const clone = source.cloneNode(true);
+  clone.querySelectorAll(".screen-only, script").forEach((node) => node.remove());
+  return clone;
+}
+
+function buildPrintDocumentHtml() {
+  const printableNodes = [
+    clonePrintableNode(".pdf-report-head"),
+    clonePrintableNode(".dashboard-band"),
+    clonePrintableNode("#overviewPanel"),
+    clonePrintableNode("#allocationPanel"),
+    clonePrintableNode("#gpaPanel"),
+    clonePrintableNode("#coursesPanel"),
+  ].filter(Boolean);
+
+  if (!printableNodes.length) {
+    throw new Error("印刷対象が見つかりません。");
+  }
+
+  const baseHref = new URL("./", window.location.href).href;
+  const stylesheetHref = new URL(`./site.css?v=${ASSET_VERSION}`, window.location.href).href;
+  const markup = printableNodes.map((node) => node.outerHTML).join("\n");
+
+  return `<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>単位趣味レーター PDF</title>
+    <base href="${escapeHtml(baseHref)}" />
+    <link rel="stylesheet" href="${escapeHtml(stylesheetHref)}" />
+    <style>
+      :root {
+        --paper-line: #d8e0e8;
+        --paper-soft: #f5f8fb;
+        --paper-text: #14212b;
+      }
+
+      body.print-export-host {
+        min-height: auto;
+        background: #ffffff !important;
+        color: var(--paper-text);
+      }
+
+      body.print-export-host::before,
+      body.print-export-host .card::after,
+      body.print-export-host .metric-card::after {
+        display: none !important;
+      }
+
+      body.print-export-host .page-shell {
+        width: auto;
+        margin: 0;
+      }
+
+      body.print-export-host .screen-only,
+      body.print-export-host .top-bar,
+      body.print-export-host .import-dock,
+      body.print-export-host .result-tabs,
+      body.print-export-host #jsonViewPanel {
+        display: none !important;
+      }
+
+      body.print-export-host .print-only {
+        display: block !important;
+      }
+
+      body.print-export-host .card,
+      body.print-export-host .metric-card,
+      body.print-export-host .detail-category-card,
+      body.print-export-host .deficit-card,
+      body.print-export-host .overflow-card,
+      body.print-export-host .table-card,
+      body.print-export-host .status-card,
+      body.print-export-host .viz-card {
+        color: var(--paper-text);
+        background: #ffffff !important;
+        border: 1px solid var(--paper-line) !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+      }
+
+      body.print-export-host .summary-pill,
+      body.print-export-host .detail-subrow,
+      body.print-export-host .overflow-card {
+        background: var(--paper-soft) !important;
+        border-color: var(--paper-line) !important;
+      }
+    </style>
+  </head>
+  <body class="print-export-host">
+    <div class="page-shell">
+      ${markup}
+    </div>
+  </body>
+</html>`;
+}
+
+function createPrintFrame() {
+  document.getElementById("pdfPrintFrame")?.remove();
+
+  const frame = document.createElement("iframe");
+  frame.id = "pdfPrintFrame";
+  frame.setAttribute("aria-hidden", "true");
+  frame.tabIndex = -1;
+  Object.assign(frame.style, {
+    position: "fixed",
+    right: "0",
+    bottom: "0",
+    width: "1px",
+    height: "1px",
+    opacity: "0",
+    pointerEvents: "none",
+    border: "0",
+  });
+  document.body.appendChild(frame);
+  return frame;
+}
+
+async function settlePrintFrame(frameWindow) {
+  await new Promise((resolve) => {
+    frameWindow.requestAnimationFrame(() => {
+      frameWindow.requestAnimationFrame(resolve);
+    });
+  });
+
+  const fontPromise = frameWindow.document.fonts?.ready;
+  if (fontPromise) {
+    await Promise.race([fontPromise.catch(() => undefined), wait(1200)]);
+  } else {
+    await wait(150);
+  }
+}
+
+async function printThroughFrame() {
+  const frame = createPrintFrame();
+  const frameDocument = frame.contentDocument;
+  const frameWindow = frame.contentWindow;
+
+  if (!frameDocument || !frameWindow) {
+    frame.remove();
+    throw new Error("印刷フレームを準備できませんでした。");
+  }
+
+  const loaded = new Promise((resolve) => {
+    const fallbackTimer = window.setTimeout(resolve, 1500);
+    frame.addEventListener(
+      "load",
+      () => {
+        window.clearTimeout(fallbackTimer);
+        resolve();
+      },
+      { once: true },
+    );
+  });
+
+  frameDocument.open();
+  frameDocument.write(buildPrintDocumentHtml());
+  frameDocument.close();
+
+  await loaded;
+  await settlePrintFrame(frameWindow);
+
+  const cleanup = () => frame.remove();
+  frameWindow.addEventListener("afterprint", cleanup, { once: true });
+  window.setTimeout(cleanup, 60000);
+
+  frameWindow.focus();
+  frameWindow.print();
+}
+
 function setButtonsDisabled(disabled) {
   [
     els.koanImportButton,
@@ -112,6 +296,7 @@ function setButtonsDisabled(disabled) {
     els.clearButton,
     els.copyJsonButton,
     els.downloadJsonButton,
+    els.exportPdfButton,
     els.sampleHeaderButton,
   ].forEach((button) => {
     button.disabled = disabled;
@@ -790,6 +975,20 @@ function exportPdf() {
   window.print();
 }
 
+async function exportPdfSafe() {
+  els.exportPdfButton.disabled = true;
+  try {
+    updatePdfMeta();
+    els.noticeText.textContent = "PDF export を準備しています。";
+    await printThroughFrame();
+    els.noticeText.textContent = "PDF 出力ダイアログを開きました。";
+  } catch (error) {
+    els.noticeText.textContent = `PDF 出力に失敗しました: ${error.message}`;
+  } finally {
+    els.exportPdfButton.disabled = false;
+  }
+}
+
 async function initialize() {
   setButtonsDisabled(true);
   setEngineState("loading", "Booting", "Pyodide と判定ロジックをロードしています。");
@@ -826,7 +1025,7 @@ els.jsonImportButton.addEventListener("click", handleJsonImport);
 els.clearButton.addEventListener("click", handleClear);
 els.copyJsonButton.addEventListener("click", copyJson);
 els.downloadJsonButton.addEventListener("click", downloadJson);
-els.exportPdfButton.addEventListener("click", exportPdf);
+els.exportPdfButton.addEventListener("click", exportPdfSafe);
 els.sampleHeaderButton.addEventListener("click", insertSampleHeader);
 window.addEventListener("beforeprint", updatePdfMeta);
 
