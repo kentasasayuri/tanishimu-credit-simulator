@@ -8,9 +8,9 @@
       name="description"
       content="大阪大学経済学部向けの卒業要件・GPA チェッカー。KOAN の成績表を貼り付けるとブラウザ内だけで集計します。"
     />
-    <link rel="stylesheet" href="./site.css?v=20260304-3" />
+    <link rel="stylesheet" href="./site.css?v=20260304-6" />
     <script defer src="https://cdn.jsdelivr.net/pyodide/v0.28.2/full/pyodide.js"></script>
-    <script defer type="module" src="./site.js?v=20260304-3"></script>
+    <script defer type="module" src="./site.js?v=20260304-6"></script>
   </head>
   <body>
     <div class="page-shell">
@@ -23,10 +23,22 @@
           <span class="top-bar-sub">大阪大学 経済学部</span>
         </div>
         <div class="top-bar-right">
+          <button id="exportPdfButton" class="secondary-button slim-button screen-only" type="button">PDF 出力</button>
           <div id="engineStatus" class="engine-chip loading">⏳ 起動中</div>
           <span id="engineDetail" class="engine-detail-inline">初回は数秒かかります</span>
         </div>
       </nav>
+
+      <section class="pdf-report-head print-only" aria-hidden="true">
+        <div class="pdf-report-kicker">単位趣味レーター Report</div>
+        <h1>卒業要件・GPA レポート</h1>
+        <div class="pdf-report-meta">
+          <span id="pdfStudentName">対象: 未設定</span>
+          <span id="pdfEnrollmentYear">入学年度: 2025</span>
+          <span id="pdfCourseCount">反映科目数: 0</span>
+          <span id="pdfGeneratedAt">出力日時: --</span>
+        </div>
+      </section>
 
       <!-- ═══ Input Dock（コンパクト版） ═══ -->
       <article id="importDock" class="card import-dock accent-cyan">

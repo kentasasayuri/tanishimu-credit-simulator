@@ -1,5 +1,5 @@
 const PYODIDE_INDEX_URL = "https://cdn.jsdelivr.net/pyodide/v0.28.2/full/";
-const ASSET_VERSION = "20260304-5";
+const ASSET_VERSION = "20260304-6";
 
 const KOAN_HEADER_SAMPLE =
   "No.\t科目詳細区分\t科目小区分\t科目名\tリーディング\t高度教養\t単位数\t修得年度\t修得学期\t評語\t合否\n";
@@ -23,6 +23,7 @@ const els = {
   clearButton: document.getElementById("clearButton"),
   copyJsonButton: document.getElementById("copyJsonButton"),
   downloadJsonButton: document.getElementById("downloadJsonButton"),
+  exportPdfButton: document.getElementById("exportPdfButton"),
   sampleHeaderButton: document.getElementById("sampleHeaderButton"),
   toggleImportDock: document.getElementById("toggleImportDock"),
   importDockBody: document.getElementById("importDockBody"),
@@ -45,6 +46,10 @@ const els = {
   overflowSummary: document.getElementById("overflowSummary"),
   overviewGpaTrend: document.getElementById("overviewGpaTrend"),
   gpaTrendLarge: document.getElementById("gpaTrendLarge"),
+  pdfStudentName: document.getElementById("pdfStudentName"),
+  pdfEnrollmentYear: document.getElementById("pdfEnrollmentYear"),
+  pdfCourseCount: document.getElementById("pdfCourseCount"),
+  pdfGeneratedAt: document.getElementById("pdfGeneratedAt"),
   inputTabs: [...document.querySelectorAll(".panel-tab")],
   inputPanels: [...document.querySelectorAll(".input-panel")],
   resultTabs: [...document.querySelectorAll(".result-tab")],
@@ -73,6 +78,31 @@ function formatMaybeNumber(value) {
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
+}
+
+function formatPrintTimestamp(date = new Date()) {
+  return new Intl.DateTimeFormat("ja-JP", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function updatePdfMeta() {
+  if (!els.pdfStudentName) {
+    return;
+  }
+
+  const studentName = (appState.student_name || "").trim() || "未設定";
+  const enrollmentYear = Number(appState.enrollment_year || 2025);
+  const courseCount = Number(appState.courses?.length || 0);
+
+  els.pdfStudentName.textContent = `対象: ${studentName}`;
+  els.pdfEnrollmentYear.textContent = `入学年度: ${enrollmentYear}`;
+  els.pdfCourseCount.textContent = `反映科目数: ${courseCount}`;
+  els.pdfGeneratedAt.textContent = `出力日時: ${formatPrintTimestamp()}`;
 }
 
 function setButtonsDisabled(disabled) {
@@ -754,6 +784,12 @@ function downloadJson() {
   els.noticeText.textContent = "JSON を保存しました。";
 }
 
+function exportPdf() {
+  updatePdfMeta();
+  els.noticeText.textContent = "印刷ダイアログで保存先を「PDF」にすると、そのままレポートを出力できます。";
+  window.print();
+}
+
 async function initialize() {
   setButtonsDisabled(true);
   setEngineState("loading", "Booting", "Pyodide と判定ロジックをロードしています。");
@@ -790,7 +826,9 @@ els.jsonImportButton.addEventListener("click", handleJsonImport);
 els.clearButton.addEventListener("click", handleClear);
 els.copyJsonButton.addEventListener("click", copyJson);
 els.downloadJsonButton.addEventListener("click", downloadJson);
+els.exportPdfButton.addEventListener("click", exportPdf);
 els.sampleHeaderButton.addEventListener("click", insertSampleHeader);
+window.addEventListener("beforeprint", updatePdfMeta);
 
 setImportDock(true);
 initialize();
