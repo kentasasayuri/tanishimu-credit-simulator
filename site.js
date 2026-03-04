@@ -1,5 +1,5 @@
 const PYODIDE_INDEX_URL = "https://cdn.jsdelivr.net/pyodide/v0.28.2/full/";
-const ASSET_VERSION = "20260304-3";
+const ASSET_VERSION = "20260304-4";
 
 const KOAN_HEADER_SAMPLE =
   "No.\t科目詳細区分\t科目小区分\t科目名\tリーディング\t高度教養\t単位数\t修得年度\t修得学期\t評語\t合否\n";

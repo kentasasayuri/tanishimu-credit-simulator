@@ -589,6 +589,66 @@ def _is_before_min_stage(year, semester, enrollment_year, min_stage):
     return (student_year, semester_index) < (min_year, min_index)
 
 
+def _get_student_year(year, enrollment_year):
+    try:
+        return int(year) - int(enrollment_year) + 1
+    except (TypeError, ValueError):
+        return None
+
+
+def _build_multilingual_mismatch_message(strict_state):
+    lang2_by_language = strict_state.get("lang2_by_language", {})
+    global_by_language = strict_state.get("global_by_language", {})
+
+    completed_lang2 = [
+        language for language, credits in lang2_by_language.items() if credits >= 4
+    ]
+    completed_global = [
+        language for language, credits in global_by_language.items() if credits >= 4
+    ]
+    for lang2_language in completed_lang2:
+        for global_language in completed_global:
+            if lang2_language != global_language:
+                return (
+                    f"第2外国語は{lang2_language}で{int(lang2_by_language.get(lang2_language, 0))}/4単位、"
+                    f"グローバル理解は{global_language}で{int(global_by_language.get(global_language, 0))}/4単位です。"
+                    "同一言語でそろえる必要があります。"
+                )
+
+    languages = sorted(
+        set(lang2_by_language) | set(global_by_language),
+        key=lambda language: (
+            min(lang2_by_language.get(language, 0), global_by_language.get(language, 0)),
+            global_by_language.get(language, 0),
+            lang2_by_language.get(language, 0),
+            language,
+        ),
+        reverse=True,
+    )
+    if not languages:
+        return "第2外国語4単位とグローバル理解4単位は同一言語で修得する必要があります。"
+
+    language = languages[0]
+    lang2_credits = int(lang2_by_language.get(language, 0))
+    global_credits = int(global_by_language.get(language, 0))
+
+    if global_credits >= 4 and lang2_credits < 4:
+        return (
+            f"グローバル理解（{language}）は{global_credits}/4単位ですが、"
+            f"第2外国語（{language}）が{lang2_credits}/4単位のため、同一言語条件を満たしていません。"
+        )
+    if lang2_credits >= 4 and global_credits < 4:
+        return (
+            f"第2外国語（{language}）は{lang2_credits}/4単位ですが、"
+            f"グローバル理解（{language}）が{global_credits}/4単位のため、同一言語条件を満たしていません。"
+        )
+    return (
+        f"第2外国語（{language}）は{lang2_credits}/4単位、"
+        f"グローバル理解（{language}）は{global_credits}/4単位です。"
+        "同一言語でそれぞれ4単位そろえる必要があります。"
+    )
+
+
 def _sort_key(course):
     return (
         course.get("year", 9999),
@@ -725,6 +785,7 @@ def calculate_credits(courses, enrollment_year=2025):
         "lang1_practical": 0,
         "lang2_by_language": {},
         "global_by_language": {},
+        "global_schedule_by_language": {},
         "seminar_credits": 0,
         "research_credits": 0,
         "research_ab_a": 0,
@@ -742,71 +803,106 @@ def calculate_credits(courses, enrollment_year=2025):
     advanced_intl_remaining = result["categories"]["international"]["subcategories"]["advanced_intl"]["required"]
     research_ab_courses = []
 
+    term_buckets = {}
     for course in prepared_courses:
-        category_id = course["category_id"]
-        credits = course["credits"]
-        inferred = course.get("_inferred") or {}
-        normalized_name = normalize_course_name(course["name"])
+        key = (course.get("year"), course.get("semester"))
+        term_buckets.setdefault(key, []).append(course)
 
-        if category_id in NON_COUNTING_TYPES:
-            result["non_counting"] += credits
-            continue
+    for _, term_courses in sorted(
+        term_buckets.items(),
+        key=lambda item: (
+            item[0][0],
+            SEMESTER_INDEX.get(item[0][1], 99),
+        ),
+    ):
+        explicit_advanced_intl_courses = []
+        regular_courses = []
 
-        if category_id == "research_ab":
-            research_ab_courses.append(course)
-            continue
+        for course in term_courses:
+            category_id = course["category_id"]
+            credits = course["credits"]
+            inferred = course.get("_inferred") or {}
 
-        if category_id in FREE_ELECTIVE_ONLY_TYPES:
-            result["free_elective_details"][category_id] += credits
-            result["categories"]["free_elective"]["raw_earned"] += credits
-            continue
+            if category_id in NON_COUNTING_TYPES:
+                result["non_counting"] += credits
+                continue
 
-        if category_id == "advanced_intl" and not inferred.get("advanced_intl_eligible"):
-            _add_subcategory_raw(result, "advanced_intl", credits)
-            continue
+            if category_id == "research_ab":
+                research_ab_courses.append(course)
+                continue
 
-        advanced_allocated = 0
-        if inferred.get("advanced_intl_eligible") and advanced_intl_remaining > 0:
-            advanced_allocated = min(credits, advanced_intl_remaining)
-            advanced_intl_remaining -= advanced_allocated
-            _add_subcategory_raw(result, "advanced_intl", advanced_allocated)
+            if category_id in FREE_ELECTIVE_ONLY_TYPES:
+                result["free_elective_details"][category_id] += credits
+                result["categories"]["free_elective"]["raw_earned"] += credits
+                continue
 
-        remaining_credits = credits - advanced_allocated
-        if remaining_credits <= 0:
-            continue
+            if category_id == "advanced_intl" and not inferred.get("advanced_intl_eligible"):
+                explicit_advanced_intl_courses.append(course)
+                continue
 
-        _add_subcategory_raw(result, category_id, remaining_credits)
+            regular_courses.append(course)
 
-        rule_key = inferred.get("rule_key")
-        if rule_key:
-            strict_state[rule_key] += remaining_credits
+        explicit_advanced_intl_credits = 0
+        for course in explicit_advanced_intl_courses:
+            explicit_advanced_intl_credits += course["credits"]
+            _add_subcategory_raw(result, "advanced_intl", course["credits"])
 
-        if category_id == "lang1":
-            if inferred.get("lang1_component") == "integrated":
-                strict_state["lang1_integrated"] += remaining_credits
-            elif inferred.get("lang1_component") == "practical":
-                strict_state["lang1_practical"] += remaining_credits
+        if explicit_advanced_intl_credits > 0 and advanced_intl_remaining > 0:
+            advanced_intl_remaining -= min(explicit_advanced_intl_credits, advanced_intl_remaining)
 
-        if category_id == "lang2":
-            language = inferred.get("language")
-            if language:
-                strict_state["lang2_by_language"][language] = (
-                    strict_state["lang2_by_language"].get(language, 0) + remaining_credits
-                )
+        for course in regular_courses:
+            category_id = course["category_id"]
+            credits = course["credits"]
+            inferred = course.get("_inferred") or {}
 
-        if category_id == "global_understanding":
-            language = inferred.get("language")
-            if language:
-                strict_state["global_by_language"][language] = (
-                    strict_state["global_by_language"].get(language, 0) + remaining_credits
-                )
+            advanced_allocated = 0
+            if inferred.get("advanced_intl_eligible") and advanced_intl_remaining > 0:
+                advanced_allocated = min(credits, advanced_intl_remaining)
+                advanced_intl_remaining -= advanced_allocated
+                _add_subcategory_raw(result, "advanced_intl", advanced_allocated)
 
-        if category_id == "required_courses":
-            seminar_kind = inferred.get("seminar_kind")
-            if seminar_kind == "specialized_seminar":
-                strict_state["seminar_credits"] += remaining_credits
-            elif seminar_kind == "research_seminar":
-                strict_state["research_credits"] += remaining_credits
+            remaining_credits = credits - advanced_allocated
+            if remaining_credits <= 0:
+                continue
+
+            _add_subcategory_raw(result, category_id, remaining_credits)
+
+            rule_key = inferred.get("rule_key")
+            if rule_key:
+                strict_state[rule_key] += remaining_credits
+
+            if category_id == "lang1":
+                if inferred.get("lang1_component") == "integrated":
+                    strict_state["lang1_integrated"] += remaining_credits
+                elif inferred.get("lang1_component") == "practical":
+                    strict_state["lang1_practical"] += remaining_credits
+
+            if category_id == "lang2":
+                language = inferred.get("language")
+                if language:
+                    strict_state["lang2_by_language"][language] = (
+                        strict_state["lang2_by_language"].get(language, 0) + remaining_credits
+                    )
+
+            if category_id == "global_understanding":
+                language = inferred.get("language")
+                if language:
+                    strict_state["global_by_language"][language] = (
+                        strict_state["global_by_language"].get(language, 0) + remaining_credits
+                    )
+                    student_year = _get_student_year(course.get("year"), enrollment_year)
+                    if student_year is not None:
+                        schedule = strict_state["global_schedule_by_language"].setdefault(language, {})
+                        schedule[(student_year, course.get("semester"))] = (
+                            schedule.get((student_year, course.get("semester")), 0) + remaining_credits
+                        )
+
+            if category_id == "required_courses":
+                seminar_kind = inferred.get("seminar_kind")
+                if seminar_kind == "specialized_seminar":
+                    strict_state["seminar_credits"] += remaining_credits
+                elif seminar_kind == "research_seminar":
+                    strict_state["research_credits"] += remaining_credits
 
     # 研究セミナーA/Bの代替処理
     research_ab_total = 0
@@ -927,8 +1023,17 @@ def calculate_credits(courses, enrollment_year=2025):
         _add_rule_deficit(
             result,
             "global_understanding",
-            "第2外国語4単位とグローバル理解4単位は同一言語で修得する必要があります。",
+            _build_multilingual_mismatch_message(strict_state),
         )
+    else:
+        schedule = strict_state["global_schedule_by_language"].get(matched_language, {})
+        first_year_spring = schedule.get((1, "春〜夏"), 0)
+        first_year_fall = schedule.get((1, "秋〜冬"), 0)
+        if first_year_spring < 2 or first_year_fall < 2:
+            _add_warning(
+                result,
+                "グローバル理解は原則として1年次春〜夏に2単位、1年次秋〜冬に2単位の配当に従って履修します（再履修等を除く）。",
+            )
 
     if strict_state["analysis"] < 2:
         _add_rule_deficit(result, "specialized_basic", "専門基礎教育科目: 「解析学入門」2単位が必要です。")
