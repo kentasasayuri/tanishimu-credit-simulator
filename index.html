@@ -14,61 +14,140 @@
   </head>
   <body>
     <div class="page-shell">
-      <header class="hero">
-        <div class="hero-copy">
-          <p class="eyebrow">GitHub Pages / Browser Only</p>
-          <h1>単位趣味レーター Web</h1>
-          <p class="lede">
-            KOAN の「単位取得状況紹介」を貼り付けるだけで、卒業要件と GPA をブラウザ内で集計します。
-            サーバーには保存しません。
-          </p>
-          <div class="hero-badges">
-            <span>大阪大学 経済学部向け</span>
-            <span>KOAN コピペ対応</span>
-            <span>個人成績は初期表示なし</span>
+
+      <!-- ═══ ナビバー（コンパクトなヘッダー） ═══ -->
+      <nav class="top-bar">
+        <div class="top-bar-brand">
+          <span class="top-bar-icon">🎓</span>
+          <strong>単位趣味レーター</strong>
+          <span class="top-bar-sub">大阪大学 経済学部</span>
+        </div>
+        <div class="top-bar-right">
+          <div id="engineStatus" class="engine-chip loading">⏳ 起動中</div>
+          <span id="engineDetail" class="engine-detail-inline">初回は数秒かかります</span>
+        </div>
+      </nav>
+
+      <!-- ═══ Input Dock（コンパクト版） ═══ -->
+      <article id="importDock" class="card import-dock accent-cyan">
+        <div class="dock-head-compact">
+          <div class="dock-lead">
+            <h2>📋 成績データを貼り付けて始める</h2>
+            <p>KOAN の成績表か保存済み JSON を下に貼り付けると、卒業要件と GPA をブラウザ内で集計します。</p>
+          </div>
+          <div class="dock-right-compact">
+            <div class="dock-status-chip">
+              <span>状態</span>
+              <strong id="noticeText">読み込み待機中</strong>
+            </div>
+            <button id="toggleImportDock" class="ghost-button slim-button" type="button">入力欄をたたむ</button>
           </div>
         </div>
 
-        <div class="hero-side">
-          <article class="card hero-visual-card accent-sun">
-            <div class="mini-label">At A Glance</div>
-            <div id="heroDonut" class="hero-donut"></div>
-            <div class="hero-mini-grid">
-              <div>
-                <span>判定</span>
-                <strong id="heroStatusLabel">待機中</strong>
+        <div id="importDockBody" class="dock-body is-open">
+          <div class="panel-tabs" role="tablist" aria-label="入力方式">
+            <button
+              class="panel-tab is-active"
+              type="button"
+              role="tab"
+              aria-selected="true"
+              data-panel-target="koanPanel"
+            >
+              KOAN 貼付
+            </button>
+            <button
+              class="panel-tab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              data-panel-target="jsonPanel"
+            >
+              JSON 復元
+            </button>
+            <button
+              class="panel-tab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              data-panel-target="guidePanel"
+            >
+              使い方
+            </button>
+          </div>
+
+          <section id="koanPanel" class="input-panel is-active" aria-label="KOAN 貼付パネル">
+            <div class="input-stage">
+              <div class="input-stage-head">
+                <label class="field-label field-label-strong" for="koanText">KOAN の成績表をここに貼り付け</label>
+                <div class="toolbar-row">
+                  <button id="sampleHeaderButton" class="ghost-button slim-button" type="button">見本ヘッダー</button>
+                  <div class="mode-switch" role="radiogroup" aria-label="読み込み方式">
+                    <label><input type="radio" name="importMode" value="replace" checked /> 置換</label>
+                    <label><input type="radio" name="importMode" value="append" /> 追記</label>
+                  </div>
+                </div>
               </div>
-              <div>
-                <span>GPA対象単位</span>
-                <strong id="heroGpaCredits">0</strong>
+              <textarea
+                id="koanText"
+                class="input-area koan-area"
+                placeholder="KOAN の「単位取得状況紹介」をヘッダー行ごと貼り付け"
+              ></textarea>
+              <div class="dock-note dock-note-inline">
+                <span>入力はブラウザ内だけで処理します。</span>
+                <span>反映後は「概要」タブに切り替わります。</span>
               </div>
             </div>
-          </article>
+            <div class="submit-row compact-submit">
+              <button id="koanImportButton" class="primary-button" type="button">KOAN を反映</button>
+            </div>
+          </section>
 
-          <article class="card hero-status accent-cyan">
-            <div class="mini-label">Engine</div>
-            <div id="engineStatus" class="engine-status loading">起動中</div>
-            <p id="engineDetail" class="engine-detail">
-              Python ロジックをブラウザ内に読み込んでいます。初回は数秒かかります。
-            </p>
-          </article>
+          <section id="jsonPanel" class="input-panel" aria-label="JSON 復元パネル">
+            <div class="input-stage">
+              <div class="input-stage-head">
+                <label class="field-label field-label-strong" for="jsonText">JSON をここに貼り付け</label>
+              </div>
+              <textarea
+                id="jsonText"
+                class="input-area json-input-area"
+                placeholder='{"student_name":"","enrollment_year":2025,"courses":[]}'
+              ></textarea>
+              <div class="dock-note dock-note-inline">
+                <span>JSON は上書きまたは追記で読み込めます。</span>
+                <span>状態を消したいときは「クリア」を使います。</span>
+              </div>
+            </div>
+            <div class="submit-row split compact-submit">
+              <button id="jsonImportButton" class="secondary-button" type="button">JSON を反映</button>
+              <button id="clearButton" class="ghost-button" type="button">クリア</button>
+            </div>
+          </section>
+
+          <section id="guidePanel" class="input-panel guide-panel" aria-label="使い方パネル">
+            <ol class="guide-list">
+              <li>KOAN の「単位取得状況紹介」で表をコピーします。</li>
+              <li>「KOAN 貼付」タブに貼り付けて「KOAN を反映」を押します。</li>
+              <li>下の「概要」でカテゴリ進捗と不足要件を確認します。</li>
+              <li>必要なら「JSON 復元」タブから保存し、あとで復元します。</li>
+            </ol>
+          </section>
         </div>
-      </header>
+      </article>
 
-      <section class="command-band">
-        <article class="card mission-card accent-rose">
-          <div class="mini-label">Status</div>
-          <div class="mission-grid">
-            <div class="mission-copy">
-              <h2 id="headlineText">KOAN の成績表か JSON を読み込むと、ここに集計結果が表示されます。</h2>
+      <!-- ═══ ダッシュボード: ステータス + メトリクス ═══ -->
+      <section class="dashboard-band">
+        <article class="card status-banner accent-rose">
+          <div class="status-banner-inner">
+            <div class="status-banner-copy">
+              <h2 id="headlineText">データを読み込むと、ここに集計結果が表示されます。</h2>
               <p id="headlineSubtext">ローカル処理のみ。ページ更新でデータは消えます。</p>
               <div id="summaryPills" class="summary-pills"></div>
             </div>
-            <div id="completionViz" class="mission-viz"></div>
+            <div id="completionViz" class="status-banner-viz"></div>
           </div>
         </article>
 
-        <div class="metric-stack">
+        <div class="metric-row">
           <article class="metric-card accent-sun">
             <div class="mini-label">取得単位</div>
             <div id="metricCredits" class="metric-value">0 / 130</div>
@@ -92,108 +171,7 @@
         </div>
       </section>
 
-      <article id="importDock" class="card import-dock accent-cyan">
-        <div class="dock-head">
-          <div>
-            <div class="mini-label">Input Dock</div>
-            <h2>入力はここだけ</h2>
-            <p>結果を主画面に残すため、読み込み欄は必要なときだけ開く構成です。</p>
-          </div>
-          <div class="dock-actions">
-            <p id="noticeText">読み込み待機中です。</p>
-            <button id="toggleImportDock" class="ghost-button" type="button">入力を開く</button>
-          </div>
-        </div>
-
-        <div id="importDockBody" class="dock-body">
-          <div class="panel-tabs" role="tablist" aria-label="入力方式">
-            <button
-              class="panel-tab is-active"
-              type="button"
-              role="tab"
-              aria-selected="true"
-              data-panel-target="koanPanel"
-            >
-              KOAN
-            </button>
-            <button
-              class="panel-tab"
-              type="button"
-              role="tab"
-              aria-selected="false"
-              data-panel-target="jsonPanel"
-            >
-              JSON
-            </button>
-            <button
-              class="panel-tab"
-              type="button"
-              role="tab"
-              aria-selected="false"
-              data-panel-target="guidePanel"
-            >
-              使い方
-            </button>
-          </div>
-
-          <section id="koanPanel" class="input-panel is-active" aria-label="KOAN 貼付パネル">
-            <div class="hint-strip">
-              <strong>最短ルート</strong>
-              <span>KOAN の表をヘッダー行ごと貼り付けて、そのまま反映してください。</span>
-            </div>
-            <div class="dock-grid">
-              <div class="dock-side">
-                <label class="field-label" for="koanText">KOAN コピペ欄</label>
-                <div class="toolbar-row">
-                  <button id="sampleHeaderButton" class="ghost-button slim-button" type="button">見本ヘッダー</button>
-                  <div class="mode-switch" role="radiogroup" aria-label="読み込み方式">
-                    <label><input type="radio" name="importMode" value="replace" checked /> 置換</label>
-                    <label><input type="radio" name="importMode" value="append" /> 追記</label>
-                  </div>
-                </div>
-                <div class="dock-note">
-                  <span>入力はブラウザ内だけで処理します。</span>
-                  <span>読込後はこの欄を自動で閉じます。</span>
-                </div>
-              </div>
-              <textarea
-                id="koanText"
-                class="input-area koan-area"
-                placeholder="No.	科目詳細区分	科目小区分	科目名	…"
-              ></textarea>
-            </div>
-            <div class="submit-row compact-submit">
-              <button id="koanImportButton" class="primary-button" type="button">KOAN を反映</button>
-            </div>
-          </section>
-
-          <section id="jsonPanel" class="input-panel" aria-label="JSON 復元パネル">
-            <div class="hint-strip">
-              <strong>復元用</strong>
-              <span>保存済み JSON を貼り付けると、現在の状態をそのまま戻せます。</span>
-            </div>
-            <textarea
-              id="jsonText"
-              class="input-area json-input-area"
-              placeholder='{"student_name":"","enrollment_year":2025,"courses":[]}'
-            ></textarea>
-            <div class="submit-row split compact-submit">
-              <button id="jsonImportButton" class="secondary-button" type="button">JSON を反映</button>
-              <button id="clearButton" class="ghost-button" type="button">クリア</button>
-            </div>
-          </section>
-
-          <section id="guidePanel" class="input-panel guide-panel" aria-label="使い方パネル">
-            <ol class="guide-list">
-              <li>KOAN の「単位取得状況紹介」で表をコピーします。</li>
-              <li>`KOAN` タブに貼り付けて `KOAN を反映` を押します。</li>
-              <li>`概要` で不足要件とグラフを確認します。</li>
-              <li>必要なら `JSON` タブから保存し、あとで復元します。</li>
-            </ol>
-          </section>
-        </div>
-      </article>
-
+      <!-- ═══ 結果タブ ═══ -->
       <div class="result-tabs" role="tablist" aria-label="結果表示">
         <button
           class="result-tab is-active"
@@ -209,9 +187,9 @@
           type="button"
           role="tab"
           aria-selected="false"
-          data-result-target="progressPanel"
+          data-result-target="allocationPanel"
         >
-          進捗
+          算入
         </button>
         <button
           class="result-tab"
@@ -242,14 +220,17 @@
         </button>
       </div>
 
+      <!-- ═══ 概要パネル ═══ -->
       <section id="overviewPanel" class="result-panel is-active" aria-label="概要パネル">
         <div class="overview-grid">
-          <article class="card viz-card accent-sun">
+          <article class="card detail-card accent-sun section-span-2">
             <div class="section-head">
-              <h2>カテゴリ進捗</h2>
-              <p>大区分ごとの達成率です。</p>
+              <h2>卒業要件の達成状況</h2>
+              <p>大区分の達成率と小区分の内訳を表示します。</p>
             </div>
-            <div id="categoryBars" class="bar-chart"></div>
+            <div id="requirementGroups" class="category-detail-grid">
+              <div class="empty-cell">データ取込後に表示されます。</div>
+            </div>
           </article>
 
           <article class="card viz-card accent-cyan">
@@ -262,12 +243,12 @@
 
           <article class="card status-card accent-mint">
             <div class="section-head">
-              <h2>不足要件</h2>
-              <p>優先して埋めるべき項目です。</p>
+              <h2>不足要件ハイライト</h2>
+              <p>優先して埋めるべき項目を大区分ごとにまとめます。</p>
             </div>
-            <ul id="deficitList" class="bullet-list empty">
-              <li>データ取込後に表示されます。</li>
-            </ul>
+            <div id="deficitShowcase" class="deficit-showcase">
+              <div class="empty-cell">データ取込後に表示されます。</div>
+            </div>
           </article>
 
           <article class="card status-card accent-rose">
@@ -280,51 +261,42 @@
             </ul>
           </article>
         </div>
-
-        <article class="card detail-card accent-sun">
-          <div class="section-head">
-            <h2>カテゴリ詳細</h2>
-            <p>大区分ごとの内訳です。どの小区分が足りていないかをここで確認できます。</p>
-          </div>
-          <div id="categoryDetails" class="category-detail-grid">
-            <div class="empty-cell">データ取込後に表示されます。</div>
-          </div>
-        </article>
       </section>
 
-      <section id="progressPanel" class="result-panel" aria-label="進捗パネル">
-        <article class="card table-card">
-          <div class="section-head">
-            <h2>進捗一覧</h2>
-            <p>区分ごとの達成状況です。</p>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>区分</th>
-                  <th>小区分</th>
-                  <th>修得</th>
-                  <th>要件</th>
-                  <th>状態</th>
-                </tr>
-              </thead>
-              <tbody id="progressTableBody">
-                <tr>
-                  <td colspan="5" class="empty-cell">データ取込後に表示されます。</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </article>
+      <!-- ═══ 算入パネル ═══ -->
+      <section id="allocationPanel" class="result-panel" aria-label="算入パネル">
+        <div class="allocation-grid">
+          <article class="card status-card accent-mint">
+            <div class="section-head">
+              <h2>自由選択への算入内訳</h2>
+              <p>余剰単位や自由選択専用科目が、どこから算入されているかだけを表示します。</p>
+            </div>
+            <div id="overflowSummary" class="overflow-stack">
+              <div class="empty-cell">データ取込後に表示されます。</div>
+            </div>
+          </article>
+
+          <article class="card status-card accent-sun">
+            <div class="section-head">
+              <h2>見方</h2>
+              <p>このタブは算入元だけを切り分けて確認する場所です。</p>
+            </div>
+            <ul class="bullet-list">
+              <li>余剰単位がなければ空表示になります。</li>
+              <li>区分別の達成率と不足は「概要」タブで確認します。</li>
+              <li>科目単位の確認は「科目」タブを使います。</li>
+            </ul>
+          </article>
+        </div>
       </section>
 
+      <!-- ═══ GPA パネル ═══ -->
       <section id="gpaPanel" class="result-panel" aria-label="GPA パネル">
         <div class="gpa-grid">
           <article class="card viz-card accent-cyan">
             <div class="section-head">
               <h2>GPA ラインチャート</h2>
-              <p>S=4, A=3, B=2, C=1, F=0。`合 / 否 / W` は対象外です。</p>
+              <p>S=4, A=3, B=2, C=1, F=0。「合 / 否 / W」は対象外です。</p>
             </div>
             <div id="gpaTrendLarge" class="chart-slot large-chart"></div>
           </article>
@@ -356,6 +328,7 @@
         </div>
       </section>
 
+      <!-- ═══ 科目パネル ═══ -->
       <section id="coursesPanel" class="result-panel" aria-label="科目パネル">
         <article class="card table-card">
           <div class="section-head">
@@ -384,6 +357,7 @@
         </article>
       </section>
 
+      <!-- ═══ JSON パネル ═══ -->
       <section id="jsonViewPanel" class="result-panel" aria-label="JSON パネル">
         <article class="card table-card">
           <div class="section-head">

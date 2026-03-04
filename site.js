@@ -27,11 +27,7 @@ const els = {
   importDockBody: document.getElementById("importDockBody"),
   engineStatus: document.getElementById("engineStatus"),
   engineDetail: document.getElementById("engineDetail"),
-  heroDonut: document.getElementById("heroDonut"),
-  heroStatusLabel: document.getElementById("heroStatusLabel"),
-  heroGpaCredits: document.getElementById("heroGpaCredits"),
   noticeText: document.getElementById("noticeText"),
-  headlineCard: document.querySelector(".story-card"),
   headlineText: document.getElementById("headlineText"),
   headlineSubtext: document.getElementById("headlineSubtext"),
   summaryPills: document.getElementById("summaryPills"),
@@ -39,14 +35,13 @@ const els = {
   metricGpa: document.getElementById("metricGpa"),
   metricDeficit: document.getElementById("metricDeficit"),
   metricCourses: document.getElementById("metricCourses"),
-  deficitList: document.getElementById("deficitList"),
+  deficitShowcase: document.getElementById("deficitShowcase"),
   warningList: document.getElementById("warningList"),
-  progressTableBody: document.getElementById("progressTableBody"),
   termTableBody: document.getElementById("termTableBody"),
   courseTableBody: document.getElementById("courseTableBody"),
   completionViz: document.getElementById("completionViz"),
-  categoryBars: document.getElementById("categoryBars"),
-  categoryDetails: document.getElementById("categoryDetails"),
+  requirementGroups: document.getElementById("requirementGroups"),
+  overflowSummary: document.getElementById("overflowSummary"),
   overviewGpaTrend: document.getElementById("overviewGpaTrend"),
   gpaTrendLarge: document.getElementById("gpaTrendLarge"),
   inputTabs: [...document.querySelectorAll(".panel-tab")],
@@ -98,14 +93,16 @@ function currentMode() {
 }
 
 function setEngineState(kind, title, detail) {
-  els.engineStatus.className = `engine-status ${kind}`;
-  els.engineStatus.textContent = title;
+  els.engineStatus.className = `engine-chip ${kind}`;
+  const icon = kind === "ready" ? "✅" : kind === "error" ? "❌" : "⏳";
+  els.engineStatus.textContent = `${icon} ${title}`;
   els.engineDetail.textContent = detail;
 }
 
 function setImportDock(open) {
   els.importDockBody.classList.toggle("is-open", open);
-  els.toggleImportDock.textContent = open ? "入力を閉じる" : "入力を開く";
+  els.toggleImportDock.textContent = open ? "入力欄をたたむ" : "入力欄を開く";
+  els.toggleImportDock.setAttribute("aria-expanded", open ? "true" : "false");
 }
 
 function activateTab(buttons, panels, targetId) {
@@ -130,26 +127,162 @@ function renderList(target, items, emptyText) {
   target.innerHTML = items.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
 }
 
-function renderProgressRows(rows) {
-  if (!rows.length) {
-    els.progressTableBody.innerHTML =
-      '<tr><td colspan="5" class="empty-cell">データ取込後に表示されます。</td></tr>';
+function buildRequirementGroupMarkup(group, index) {
+  const fillClass = categoryFillClasses[index % categoryFillClasses.length];
+  const percent = Math.round(clamp(Number(group.percent || 0), 0, 1) * 100);
+  const tone = group.status === "達成" ? "ok" : "warn";
+  const metaText =
+    group.status === "達成"
+      ? "大区分は充足済み"
+      : group.items.length
+        ? `未充足 ${escapeHtml(group.unmet_item_count)} 件`
+        : `残り ${escapeHtml(group.deficit)} 単位`;
+  const itemsMarkup = group.items.length
+    ? group.items
+        .map((item) => {
+          const itemTone = item.status === "達成" ? "ok" : "warn";
+          const itemPercent = Math.round(clamp(Number(item.percent || 0), 0, 1) * 100);
+          const noteMarkup = item.rule_messages.length
+            ? `
+                <ul class="detail-note-list">
+                  ${item.rule_messages.map((message) => `<li>${escapeHtml(message)}</li>`).join("")}
+                </ul>
+              `
+            : item.deficit > 0
+              ? `<div class="detail-note">あと ${escapeHtml(item.deficit)} 単位不足</div>`
+              : "";
+
+          return `
+            <div class="detail-subrow ${item.status !== "達成" ? "is-deficit" : ""}">
+              <div class="detail-subhead">
+                <strong>${escapeHtml(item.name)}</strong>
+                <span>${escapeHtml(item.earned)} / ${escapeHtml(item.required)} 単位</span>
+              </div>
+              <div class="bar-track thin-track">
+                <div class="bar-fill ${fillClass}" style="width:${itemPercent}%"></div>
+              </div>
+              <span class="status-chip ${itemTone}">${escapeHtml(item.status)}</span>
+              ${noteMarkup}
+            </div>
+          `;
+        })
+        .join("")
+    : group.sources.length
+      ? group.sources
+          .map((source) => {
+            const sourcePercent = Math.round(
+              clamp(Number(source.credits || 0) / Math.max(Number(group.required || 0), 1), 0, 1) * 100,
+            );
+            return `
+              <div class="detail-subrow">
+                <div class="detail-subhead">
+                  <strong>${escapeHtml(source.label)}</strong>
+                  <span>${escapeHtml(source.credits)} 単位</span>
+                </div>
+                <div class="bar-track thin-track">
+                  <div class="bar-fill ${fillClass}" style="width:${sourcePercent}%"></div>
+                </div>
+                <span class="status-chip ok">算入中</span>
+              </div>
+            `;
+          })
+          .join("")
+      : '<div class="empty-cell">内訳はありません。</div>';
+
+  return `
+    <article class="detail-category-card ${group.status !== "達成" ? "is-deficit" : ""}">
+      <div class="detail-card-head">
+        <div>
+          <h3>${escapeHtml(group.name)}</h3>
+          <p>${escapeHtml(group.earned)} / ${escapeHtml(group.required)} 単位</p>
+        </div>
+        <div class="detail-head-side">
+          <span class="detail-percent">${percent}%</span>
+          <span class="status-chip ${tone}">${escapeHtml(group.status)}</span>
+        </div>
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill ${fillClass}" style="width:${percent}%"></div>
+      </div>
+      <div class="detail-card-meta">
+        <span>${metaText}</span>
+        <span>${escapeHtml(group.raw_earned)} 単位入力済み</span>
+      </div>
+      <div class="detail-subgrid">
+        ${itemsMarkup}
+      </div>
+    </article>
+  `;
+}
+
+function renderRequirementGroups(target, groups) {
+  if (!groups.length) {
+    target.innerHTML = '<div class="empty-cell">データ取込後に表示されます。</div>';
     return;
   }
 
-  els.progressTableBody.innerHTML = rows
-    .map((row) => {
-      const tone = row.status === "達成" ? "ok" : "warn";
-      return `
-        <tr>
-          <td>${escapeHtml(row.group)}</td>
-          <td>${escapeHtml(row.name)}</td>
-          <td>${escapeHtml(row.earned)}</td>
-          <td>${escapeHtml(row.required)}</td>
-          <td><span class="status-chip ${tone}">${escapeHtml(row.status)}</span></td>
-        </tr>
-      `;
-    })
+  target.innerHTML = groups.map((group, index) => buildRequirementGroupMarkup(group, index)).join("");
+}
+
+function renderDeficitShowcase(cards) {
+  if (!cards.length) {
+    els.deficitShowcase.innerHTML = `
+      <article class="deficit-card is-clear">
+        <div class="deficit-card-head">
+          <div>
+            <span class="deficit-kicker">Clear</span>
+            <h3>不足要件はありません</h3>
+          </div>
+          <span class="status-chip ok">達成</span>
+        </div>
+        <p class="deficit-summary">この時点では卒業要件の不足表示は出ていません。</p>
+      </article>
+    `;
+    return;
+  }
+
+  els.deficitShowcase.innerHTML = cards
+    .map(
+      (card) => `
+        <article class="deficit-card">
+          <div class="deficit-card-head">
+            <div>
+              <span class="deficit-kicker">Deficit</span>
+              <h3>${escapeHtml(card.title)}</h3>
+            </div>
+            <strong>${escapeHtml(card.value)}</strong>
+          </div>
+          <ul class="deficit-points">
+            ${card.lines.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}
+          </ul>
+        </article>
+      `,
+    )
+    .join("");
+}
+
+function renderOverflowSummary(overflowItems, freeElectiveSources) {
+  const items = freeElectiveSources.length
+    ? freeElectiveSources
+    : overflowItems.map((item) => {
+        const [label, credits] = String(item).split(":");
+        return { label: label?.trim() || item, credits: credits?.trim() || "" };
+      });
+
+  if (!items.length) {
+    els.overflowSummary.innerHTML = '<div class="empty-cell">自由選択に算入された余剰はありません。</div>';
+    return;
+  }
+
+  els.overflowSummary.innerHTML = items
+    .map(
+      (item) => `
+        <div class="overflow-card">
+          <span>${escapeHtml(item.label)}</span>
+          <strong>${escapeHtml(item.credits)}${typeof item.credits === "number" ? " 単位" : ""}</strong>
+        </div>
+      `,
+    )
     .join("");
 }
 
@@ -236,41 +369,7 @@ function buildDonutSvg(percent, accent = "sun", size = 220, stroke = 18) {
 }
 
 function renderHeroDonut(summary, deficitCount, warningCount) {
-  const earned = Number(summary.total_earned || 0);
-  const percent = clamp(earned / 130, 0, 1);
-  const statusText =
-    summary.tone === "ok"
-      ? "卒業圏内"
-      : summary.tone === "risk"
-        ? "条件未充足"
-        : summary.tone === "warn"
-          ? "要件不足"
-          : "待機中";
-
-  els.heroDonut.innerHTML = `
-    <div class="donut-layout">
-      <div class="donut-center">
-        ${buildDonutSvg(percent, "sun", 220, 18)}
-      </div>
-      <div class="donut-legend">
-        <div class="donut-legend-row">
-          <span>取得単位</span>
-          <strong>${earned} / 130</strong>
-        </div>
-        <div class="donut-legend-row">
-          <span>不足要件</span>
-          <strong>${deficitCount} 件</strong>
-        </div>
-        <div class="donut-legend-row">
-          <span>警告</span>
-          <strong>${warningCount} 件</strong>
-        </div>
-      </div>
-    </div>
-  `;
-
-  els.heroStatusLabel.textContent = statusText;
-  els.heroGpaCredits.textContent = String(summary.gpa_credits ?? 0);
+  /* Hero donut removed in compact layout – now handled by renderCompletionViz */
 }
 
 function renderCompletionViz(summary, deficitCount, warningCount) {
@@ -281,7 +380,7 @@ function renderCompletionViz(summary, deficitCount, warningCount) {
   els.completionViz.innerHTML = `
     <div class="donut-layout">
       <div class="donut-center">
-        ${buildDonutSvg(percent, "sun", 250, 20)}
+        ${buildDonutSvg(percent, "sun", 212, 18)}
       </div>
       <div class="donut-legend">
         <div class="donut-legend-row">
@@ -303,106 +402,6 @@ function renderCompletionViz(summary, deficitCount, warningCount) {
       </div>
     </div>
   `;
-}
-
-function renderCategoryBars(progressRows) {
-  const topLevelRows = progressRows.filter((row) => row.name === "合計");
-  if (!topLevelRows.length) {
-    els.categoryBars.innerHTML = '<div class="empty-cell">データ取込後に表示されます。</div>';
-    return;
-  }
-
-  els.categoryBars.innerHTML = topLevelRows
-    .map((row, index) => {
-      const percent = row.required > 0 ? clamp(row.earned / row.required, 0, 1) : 0;
-      const fillClass = categoryFillClasses[index % categoryFillClasses.length];
-      return `
-        <div class="bar-row">
-          <div class="bar-label-row">
-            <strong>${escapeHtml(row.group)}</strong>
-            <span>${escapeHtml(row.earned)} / ${escapeHtml(row.required)}</span>
-          </div>
-          <div class="bar-track">
-            <div class="bar-fill ${fillClass}" style="width:${percent * 100}%"></div>
-          </div>
-        </div>
-      `;
-    })
-    .join("");
-}
-
-function renderCategoryDetails(progressRows, freeElectiveSources = []) {
-  const topLevelRows = progressRows.filter((row) => row.name === "合計");
-  if (!topLevelRows.length) {
-    els.categoryDetails.innerHTML = '<div class="empty-cell">データ取込後に表示されます。</div>';
-    return;
-  }
-
-  const cards = topLevelRows.map((row, index) => {
-    const children = progressRows.filter((child) => child.group === row.group && child.name !== "合計");
-    const percent = row.required > 0 ? clamp(row.earned / row.required, 0, 1) : 0;
-    const fillClass = categoryFillClasses[index % categoryFillClasses.length];
-    const sourceMarkup =
-      !children.length && freeElectiveSources.length
-        ? freeElectiveSources
-            .map((source) => {
-              const sourcePercent = clamp(source.credits / Math.max(row.required, 1), 0, 1);
-              return `
-                <div class="detail-subrow">
-                  <div class="detail-subhead">
-                    <strong>${escapeHtml(source.label)}</strong>
-                    <span>${escapeHtml(source.credits)} 単位</span>
-                  </div>
-                  <div class="bar-track thin-track">
-                    <div class="bar-fill ${fillClass}" style="width:${sourcePercent * 100}%"></div>
-                  </div>
-                </div>
-              `;
-            })
-            .join("")
-        : "";
-
-    const childMarkup = children.length
-      ? children
-          .map((child) => {
-            const childPercent = child.required > 0 ? clamp(child.earned / child.required, 0, 1) : 0;
-            const childTone = child.status === "達成" ? "ok" : "warn";
-            return `
-              <div class="detail-subrow">
-                <div class="detail-subhead">
-                  <strong>${escapeHtml(child.name)}</strong>
-                  <span>${escapeHtml(child.earned)} / ${escapeHtml(child.required)}</span>
-                </div>
-                <div class="bar-track thin-track">
-                  <div class="bar-fill ${fillClass}" style="width:${childPercent * 100}%"></div>
-                </div>
-                <span class="status-chip ${childTone}">${escapeHtml(child.status)}</span>
-              </div>
-            `;
-          })
-          .join("")
-      : sourceMarkup || '<div class="empty-cell">内訳はありません。</div>';
-
-    return `
-      <article class="detail-category-card">
-        <div class="detail-card-head">
-          <div>
-            <h3>${escapeHtml(row.group)}</h3>
-            <p>${escapeHtml(row.earned)} / ${escapeHtml(row.required)} 単位</p>
-          </div>
-          <span class="detail-percent">${Math.round(percent * 100)}%</span>
-        </div>
-        <div class="bar-track">
-          <div class="bar-fill ${fillClass}" style="width:${percent * 100}%"></div>
-        </div>
-        <div class="detail-subgrid">
-          ${childMarkup}
-        </div>
-      </article>
-    `;
-  });
-
-  els.categoryDetails.innerHTML = cards.join("");
 }
 
 function buildLineChart(rows, { width, height, accent }) {
@@ -494,10 +493,12 @@ function renderGpaCharts(termRows) {
   els.gpaTrendLarge.innerHTML = buildLineChart(termRows, { width: 720, height: 300, accent: "mint" });
 }
 
-function renderSummaryPills(summary, deficits, warnings) {
+function renderSummaryPills(summary, requirementGroups, warnings) {
+  const totalGroups = requirementGroups.length || 4;
+  const achievedGroups = requirementGroups.filter((group) => group.status === "達成").length;
   const pills = [
     `総不足 ${summary.deficit} 単位`,
-    `不足要件 ${deficits.length} 件`,
+    `大区分 ${achievedGroups} / ${totalGroups} 達成`,
     `警告 ${warnings.length} 件`,
   ];
   els.summaryPills.innerHTML = pills.map((pill) => `<span class="summary-pill">${escapeHtml(pill)}</span>`).join("");
@@ -508,6 +509,7 @@ function renderPayload(payload) {
 
   const summary = payload.summary;
   const warningItems = payload.warnings || [];
+  const requirementGroups = payload.requirement_groups || [];
 
   els.noticeText.textContent = payload.notice || "待機中です。";
   els.metricCredits.textContent = `${summary.total_earned} / 130`;
@@ -518,16 +520,15 @@ function renderPayload(payload) {
   els.headlineSubtext.textContent = `データソース: ${appState.source || "blank"} / GPA対象単位: ${summary.gpa_credits}`;
   els.exportJson.value = payload.json_text;
 
-  renderSummaryPills(summary, payload.deficits, warningItems);
+  renderSummaryPills(summary, requirementGroups, warningItems);
   renderHeroDonut(summary, payload.deficits.length, warningItems.length);
   renderCompletionViz(summary, payload.deficits.length, warningItems.length);
-  renderCategoryBars(payload.progress_rows);
-  renderCategoryDetails(payload.progress_rows, payload.free_elective_sources || []);
+  renderRequirementGroups(els.requirementGroups, requirementGroups);
+  renderDeficitShowcase(payload.deficit_cards || []);
+  renderOverflowSummary(payload.overflow || [], payload.free_elective_sources || []);
   renderGpaCharts(payload.term_rows);
 
-  renderList(els.deficitList, payload.deficits, "不足要件はありません。");
   renderList(els.warningList, warningItems, "警告はありません。");
-  renderProgressRows(payload.progress_rows);
   renderTermRows(payload.term_rows);
   renderCourseRows(payload.course_rows);
 }
@@ -699,5 +700,5 @@ els.copyJsonButton.addEventListener("click", copyJson);
 els.downloadJsonButton.addEventListener("click", downloadJson);
 els.sampleHeaderButton.addEventListener("click", insertSampleHeader);
 
-setImportDock(false);
+setImportDock(true);
 initialize();
