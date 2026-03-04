@@ -134,6 +134,12 @@ def _build_requirement_groups(
             sub_data = category_data["subcategories"][sub["id"]]
             rule_messages = rule_messages_by_subcategory.get(sub["id"], [])
             credit_deficit = max(sub_data["required"] - sub_data["earned"], 0)
+            if credit_deficit > 0:
+                item_status = "不足"
+            elif rule_messages:
+                item_status = "注意"
+            else:
+                item_status = "達成"
             items.append(
                 {
                     "id": sub["id"],
@@ -147,13 +153,20 @@ def _build_requirement_groups(
                         if sub_data["required"] > 0
                         else 0.0
                     ),
-                    "status": "達成" if credit_deficit == 0 and not rule_messages else "不足",
+                    "status": item_status,
                     "rule_messages": rule_messages,
                 }
             )
 
         category_deficit = max(category_data["required"] - category_data["earned"], 0)
-        unmet_item_count = sum(1 for item in items if item["status"] != "達成")
+        deficit_item_count = sum(1 for item in items if item["status"] == "不足")
+        caution_item_count = sum(1 for item in items if item["status"] == "注意")
+        if category_deficit > 0 or deficit_item_count > 0:
+            group_status = "不足"
+        elif caution_item_count > 0:
+            group_status = "注意"
+        else:
+            group_status = "達成"
         groups.append(
             {
                 "id": category["id"],
@@ -167,8 +180,9 @@ def _build_requirement_groups(
                     if category_data["required"] > 0
                     else 0.0
                 ),
-                "status": "達成" if category_deficit == 0 and unmet_item_count == 0 else "不足",
-                "unmet_item_count": unmet_item_count,
+                "status": group_status,
+                "unmet_item_count": deficit_item_count,
+                "caution_item_count": caution_item_count,
                 "items": items,
                 "sources": free_elective_sources if category["id"] == "free_elective" else [],
             }

@@ -620,6 +620,11 @@ button:disabled {
 }
 
 .detail-category-card.is-deficit {
+  border-color: rgba(255, 159, 135, 0.26);
+  background: linear-gradient(180deg, rgba(255, 159, 135, 0.08), rgba(255, 255, 255, 0.04));
+}
+
+.detail-category-card.is-caution {
   border-color: rgba(255, 201, 120, 0.26);
   background: linear-gradient(180deg, rgba(255, 201, 120, 0.08), rgba(255, 255, 255, 0.04));
 }
@@ -682,6 +687,11 @@ button:disabled {
 }
 
 .detail-subrow.is-deficit {
+  border: 1px solid rgba(255, 159, 135, 0.16);
+  background: rgba(255, 159, 135, 0.06);
+}
+
+.detail-subrow.is-caution {
   border: 1px solid rgba(255, 201, 120, 0.14);
   background: rgba(255, 201, 120, 0.05);
 }
@@ -1029,6 +1039,11 @@ tbody tr:nth-child(even) td {
 }
 
 .status-chip.warn {
+  background: rgba(255, 159, 135, 0.12);
+  color: var(--rose);
+}
+
+.status-chip.caution {
   background: rgba(255, 201, 120, 0.12);
   color: var(--amber);
 }

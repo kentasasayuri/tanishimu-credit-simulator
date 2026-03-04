@@ -1,5 +1,5 @@
 const PYODIDE_INDEX_URL = "https://cdn.jsdelivr.net/pyodide/v0.28.2/full/";
-const ASSET_VERSION = "20260304-4";
+const ASSET_VERSION = "20260304-5";
 
 const KOAN_HEADER_SAMPLE =
   "No.\t科目詳細区分\t科目小区分\t科目名\tリーディング\t高度教養\t単位数\t修得年度\t修得学期\t評語\t合否\n";
@@ -131,17 +131,21 @@ function renderList(target, items, emptyText) {
 function buildRequirementGroupMarkup(group, index) {
   const fillClass = categoryFillClasses[index % categoryFillClasses.length];
   const percent = Math.round(clamp(Number(group.percent || 0), 0, 1) * 100);
-  const tone = group.status === "達成" ? "ok" : "warn";
+  const tone = group.status === "不足" ? "warn" : group.status === "注意" ? "caution" : "ok";
+  const cardStateClass = group.status === "不足" ? "is-deficit" : group.status === "注意" ? "is-caution" : "";
   const metaText =
     group.status === "達成"
       ? "大区分は充足済み"
+      : group.status === "注意"
+        ? `充足済み・注意 ${escapeHtml(group.caution_item_count || 0)} 件`
       : group.items.length
         ? `未充足 ${escapeHtml(group.unmet_item_count)} 件`
         : `残り ${escapeHtml(group.deficit)} 単位`;
   const itemsMarkup = group.items.length
     ? group.items
         .map((item) => {
-          const itemTone = item.status === "達成" ? "ok" : "warn";
+          const itemTone = item.status === "不足" ? "warn" : item.status === "注意" ? "caution" : "ok";
+          const itemStateClass = item.status === "不足" ? "is-deficit" : item.status === "注意" ? "is-caution" : "";
           const itemPercent = Math.round(clamp(Number(item.percent || 0), 0, 1) * 100);
           const noteMarkup = item.rule_messages.length
             ? `
@@ -154,7 +158,7 @@ function buildRequirementGroupMarkup(group, index) {
               : "";
 
           return `
-            <div class="detail-subrow ${item.status !== "達成" ? "is-deficit" : ""}">
+            <div class="detail-subrow ${itemStateClass}">
               <div class="detail-subhead">
                 <strong>${escapeHtml(item.name)}</strong>
                 <span>${escapeHtml(item.earned)} / ${escapeHtml(item.required)} 単位</span>
@@ -191,7 +195,7 @@ function buildRequirementGroupMarkup(group, index) {
       : '<div class="empty-cell">内訳はありません。</div>';
 
   return `
-    <article class="detail-category-card ${group.status !== "達成" ? "is-deficit" : ""}">
+    <article class="detail-category-card ${cardStateClass}">
       <div class="detail-card-head">
         <div>
           <h3>${escapeHtml(group.name)}</h3>
@@ -575,7 +579,7 @@ function renderGpaCharts(termRows) {
 
 function renderSummaryPills(summary, requirementGroups, warnings) {
   const totalGroups = requirementGroups.length || 4;
-  const achievedGroups = requirementGroups.filter((group) => group.status === "達成").length;
+  const achievedGroups = requirementGroups.filter((group) => group.status !== "不足").length;
   const pills = [
     `総不足 ${summary.deficit} 単位`,
     `大区分 ${achievedGroups} / ${totalGroups} 達成`,
